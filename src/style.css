@@ -185,19 +185,99 @@ h1 {
 
 .prompt {
   position: absolute;
-  top: calc(100vh - 72px);
+  top: auto;
+  bottom: 28px;
   left: 50%;
-  max-width: min(620px, calc(100vw - 32px));
+  max-width: min(560px, calc(100vw - 32px));
   transform: translateX(-50%);
-  border: 1px solid rgba(255, 247, 214, 0.44);
+  border: 1px solid rgba(255, 247, 214, 0.36);
   border-radius: 8px;
   padding: 10px 12px;
-  background: rgba(28, 37, 22, 0.72);
+  background: rgba(28, 37, 22, 0.64);
   box-shadow: var(--shadow);
   color: #fff9df;
-  font-size: 0.9rem;
+  font-size: 0.84rem;
   font-weight: 750;
   text-align: center;
+}
+
+#notice-stack {
+  pointer-events: none;
+  position: absolute;
+  right: 16px;
+  top: 172px;
+  display: grid;
+  gap: 8px;
+  width: min(290px, calc(100vw - 32px));
+}
+
+.notice {
+  border: 1px solid rgba(255, 247, 214, 0.42);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(29, 37, 22, 0.78);
+  box-shadow: var(--shadow);
+  color: #fff9df;
+  font-size: 0.82rem;
+  font-weight: 800;
+  line-height: 1.35;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+#skill-dock {
+  pointer-events: none;
+  position: absolute;
+  left: 16px;
+  bottom: 20px;
+  display: flex;
+  gap: 8px;
+}
+
+.skill-slot {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 148px;
+  border: 1px solid rgba(255, 247, 214, 0.36);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: rgba(28, 37, 22, 0.7);
+  box-shadow: var(--shadow);
+  color: #fff9df;
+}
+
+.skill-slot.is-active {
+  border-color: rgba(255, 226, 138, 0.76);
+  background: rgba(75, 52, 25, 0.82);
+}
+
+.skill-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: #fff1b6;
+  color: #4a321e;
+  font-size: 1.05rem;
+  font-weight: 950;
+}
+
+.skill-slot strong,
+.skill-slot small {
+  display: block;
+}
+
+.skill-slot strong {
+  font-size: 0.82rem;
+}
+
+.skill-slot small {
+  color: rgba(255, 249, 223, 0.72);
+  font-size: 0.72rem;
+  font-weight: 850;
 }
 
 .dialogue {
@@ -299,9 +379,24 @@ h1 {
   }
 
   .prompt {
-    top: auto;
     bottom: 94px;
     font-size: 0.78rem;
+  }
+
+  #notice-stack {
+    top: 176px;
+    right: 10px;
+    width: min(260px, calc(100vw - 20px));
+  }
+
+  #skill-dock {
+    left: 14px;
+    bottom: 92px;
+  }
+
+  .skill-slot {
+    min-width: 124px;
+    padding: 7px 8px;
   }
 
   .dialogue {

@@ -1,0 +1,144 @@
+import type { Point, Rect } from "./content/maps";
+
+export type Ellipse = {
+  x: number;
+  y: number;
+  rx: number;
+  ry: number;
+};
+
+export type Polygon = {
+  points: Point[];
+};
+
+export type CollisionShapes = {
+  rects?: Rect[];
+  ellipses?: Ellipse[];
+  polygons?: Polygon[];
+};
+
+export class CollisionGrid {
+  readonly cols: number;
+  readonly rows: number;
+  private grid: Uint8Array;
+
+  constructor(
+    readonly worldWidth: number,
+    readonly worldHeight: number,
+    readonly cellSize: number,
+  ) {
+    this.cols = Math.ceil(worldWidth / cellSize);
+    this.rows = Math.ceil(worldHeight / cellSize);
+    this.grid = new Uint8Array(this.cols * this.rows);
+  }
+
+  addShapes(shapes: CollisionShapes) {
+    shapes.rects?.forEach((r) => this.rasterizeRect(r));
+    shapes.ellipses?.forEach((e) => this.rasterizeEllipse(e));
+    shapes.polygons?.forEach((p) => this.rasterizePolygon(p));
+  }
+
+  isBlocked(x: number, y: number): boolean {
+    const col = Math.floor(x / this.cellSize);
+    const row = Math.floor(y / this.cellSize);
+    if (col < 0 || col >= this.cols || row < 0 || row >= this.rows) return true;
+    return this.grid[row * this.cols + col] === 1;
+  }
+
+  private setCell(col: number, row: number) {
+    if (col < 0 || col >= this.cols || row < 0 || row >= this.rows) return;
+    this.grid[row * this.cols + col] = 1;
+  }
+
+  private rasterizeRect(r: Rect) {
+    const left = r.x - r.width / 2;
+    const top = r.y - r.height / 2;
+    const right = r.x + r.width / 2;
+    const bottom = r.y + r.height / 2;
+    const c0 = Math.floor(left / this.cellSize);
+    const c1 = Math.floor(right / this.cellSize);
+    const r0 = Math.floor(top / this.cellSize);
+    const r1 = Math.floor(bottom / this.cellSize);
+    for (let row = r0; row <= r1; row++) {
+      for (let col = c0; col <= c1; col++) {
+        this.setCell(col, row);
+      }
+    }
+  }
+
+  private rasterizeEllipse(e: Ellipse) {
+    const c0 = Math.floor((e.x - e.rx) / this.cellSize);
+    const c1 = Math.floor((e.x + e.rx) / this.cellSize);
+    const r0 = Math.floor((e.y - e.ry) / this.cellSize);
+    const r1 = Math.floor((e.y + e.ry) / this.cellSize);
+    for (let row = r0; row <= r1; row++) {
+      for (let col = c0; col <= c1; col++) {
+        const cx = col * this.cellSize + this.cellSize / 2;
+        const cy = row * this.cellSize + this.cellSize / 2;
+        const dx = (cx - e.x) / e.rx;
+        const dy = (cy - e.y) / e.ry;
+        if (dx * dx + dy * dy <= 1) this.setCell(col, row);
+      }
+    }
+  }
+
+  private rasterizePolygon(p: Polygon) {
+    if (p.points.length < 3) return;
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const pt of p.points) {
+      if (pt.x < minX) minX = pt.x;
+      if (pt.y < minY) minY = pt.y;
+      if (pt.x > maxX) maxX = pt.x;
+      if (pt.y > maxY) maxY = pt.y;
+    }
+    const c0 = Math.floor(minX / this.cellSize);
+    const c1 = Math.floor(maxX / this.cellSize);
+    const r0 = Math.floor(minY / this.cellSize);
+    const r1 = Math.floor(maxY / this.cellSize);
+    for (let row = r0; row <= r1; row++) {
+      for (let col = c0; col <= c1; col++) {
+        const cx = col * this.cellSize + this.cellSize / 2;
+        const cy = row * this.cellSize + this.cellSize / 2;
+        if (pointInPolygon(cx, cy, p.points)) this.setCell(col, row);
+      }
+    }
+  }
+
+  renderDebugCanvas(): HTMLCanvasElement {
+    const canvas = document.createElement("canvas");
+    canvas.width = this.worldWidth;
+    canvas.height = this.worldHeight;
+    const ctx = canvas.getContext("2d")!;
+    ctx.fillStyle = "rgba(225, 64, 72, 0.42)";
+    for (let row = 0; row < this.rows; row++) {
+      for (let col = 0; col < this.cols; col++) {
+        if (this.grid[row * this.cols + col] === 1) {
+          ctx.fillRect(
+            col * this.cellSize,
+            row * this.cellSize,
+            this.cellSize,
+            this.cellSize,
+          );
+        }
+      }
+    }
+    return canvas;
+  }
+}
+
+function pointInPolygon(x: number, y: number, points: Point[]): boolean {
+  let inside = false;
+  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+    const xi = points[i].x;
+    const yi = points[i].y;
+    const xj = points[j].x;
+    const yj = points[j].y;
+    const intersects =
+      yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
+    if (intersects) inside = !inside;
+  }
+  return inside;
+}

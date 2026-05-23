@@ -39,6 +39,10 @@ Muốn thêm map mới: thêm id vào `MapId`, thêm entry trong `MAPS`, rồi t
 - Deep water đang là collider: chưa học bơi thì không đi thẳng xuống ao/hồ.
 - Shallow water làm nhân vật đi chậm và đổi trạng thái HUD thành `Lội nước`.
 - Exit xuống map mới nằm ở vùng đường đất phía nam, không còn bị blocker che.
+- `src/collision.ts` tạo collision matrix 8px/cell. Ảnh map chỉ là visual; grid này mới quyết định ô nào đi được.
+- Dev mode bấm `M` để bật overlay đỏ debug vùng bị chặn.
+- Ruộng, ao, mương và biên map được rasterize từ rect/ellipse/polygon trong `src/content/maps.ts`.
+- Bù nhìn/cọc tre có HP bar, bị đánh trừ máu; nếu ngắt nhịp quá lâu thì hồi phục.
 
 ## Asset
 

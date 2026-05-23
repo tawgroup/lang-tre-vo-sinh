@@ -1,17 +1,29 @@
 import Phaser from "phaser";
 import "./style.css";
-import { MAPS, WORLD, rectContains, type ExitDef, type MapDef } from "./content/maps";
+import { CollisionGrid } from "./collision";
+import { MAPS, WORLD, rectContains, type ExitDef, type MapDef, type TargetDef } from "./content/maps";
 import { masterDialogue, type DialogueScript } from "./content/story";
 import { GameState, type GameSnapshot, type MapId } from "./gameState";
 import { clearSave, loadSave, writeSave } from "./save";
+
+const FEET_OFFSET_Y = 22;
+const COLLISION_CELL_SIZE = 8;
 
 type Action = "up" | "down" | "left" | "right" | "strike" | "interact";
 type Dialogue = DialogueScript & {
   onDone?: () => void;
 };
+type TargetRuntime = {
+  def: TargetDef;
+  hp: number;
+  lastHitAt: number;
+  barBg: Phaser.GameObjects.Rectangle;
+  barFill: Phaser.GameObjects.Rectangle;
+};
 
 const HERO_SCALE = 0.48;
 const WALK_SPEED = 190;
+const STAFF_DAMAGE = 1;
 const state = new GameState(loadSave());
 const pressedActions = new Set<Action>();
 
@@ -34,6 +46,14 @@ class VillageScene extends Phaser.Scene {
   private strikeUntil = 0;
   private transitionLockedUntil = 0;
   private waterBlockPromptUntil = 0;
+  private lastTerrain = state.snapshot().terrain;
+  private lastRippleAt = 0;
+  private targetRuntime = new Map<string, TargetRuntime>();
+  private collisionGrid?: CollisionGrid;
+  private lastValid = { x: 0, y: 0 };
+  private debugOverlay?: Phaser.GameObjects.Image;
+  private debugVisible = false;
+  private mKey?: Phaser.Input.Keyboard.Key;
 
   constructor() {
     super("village");
@@ -60,13 +80,18 @@ class VillageScene extends Phaser.Scene {
     this.loadMap(state.snapshot().map, MAPS[state.snapshot().map].start);
 
     this.scale.on("resize", (size: Phaser.Structs.Size) => {
-      this.cameras.main.setZoom(size.width < 720 ? 1.0 : 1.1);
+      this.cameras.main.setZoom(this.cameraZoom(size.width, size.height));
     });
 
     wireSaveUi(() => this.resetGame());
     if (import.meta.env.DEV) {
       (window as Window & { __voSinhDebug?: unknown }).__voSinhDebug = {
-        movePlayerTo: (x: number, y: number) => this.player.setPosition(x, y),
+        movePlayerTo: (x: number, y: number) => {
+          this.player.setPosition(x, y);
+          this.lastValid = { x, y };
+        },
+        player: () => ({ x: this.player.x, y: this.player.y }),
+        canWalk: (x: number, y: number) => !this.isFootBlocked(x, y),
         snapshot: () => state.snapshot(),
         save: () => state.toSave(),
       };
@@ -87,14 +112,27 @@ class VillageScene extends Phaser.Scene {
     this.player.setVelocity(velocity.x, velocity.y);
     if (velocity.x !== 0) this.player.setFlipX(velocity.x < 0);
     this.playHeroAnimation(velocity, time);
+    this.resolveCollision();
 
+    if (this.mKey && Phaser.Input.Keyboard.JustDown(this.mKey)) {
+      this.debugVisible = !this.debugVisible;
+      this.debugOverlay?.setVisible(this.debugVisible);
+    }
+
+    const previousTerrain = this.lastTerrain;
     if (time < this.waterBlockPromptUntil) {
       state.setTerrain("blocked-water");
     } else if (terrain.kind === "shallow-water") {
       state.setTerrain("shallow-water", terrain.prompt);
+      this.spawnWaterRipple(time);
     } else {
       state.setTerrain("normal");
+      if (previousTerrain !== "normal") {
+        state.setPrompt("Đã lên bờ. Đi theo đường đất để tránh ao, mương và ruộng.");
+      }
     }
+    this.updateTerrainHud();
+    this.updateTargetRecovery(time);
 
     this.handleExitOverlap(time);
 
@@ -127,6 +165,9 @@ class VillageScene extends Phaser.Scene {
       e: Phaser.Input.Keyboard.KeyCodes.E,
       space: Phaser.Input.Keyboard.KeyCodes.SPACE,
     }) as Record<string, Phaser.Input.Keyboard.Key>;
+    if (import.meta.env.DEV) {
+      this.mKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.M);
+    }
   }
 
   private createAnimations() {
@@ -154,8 +195,9 @@ class VillageScene extends Phaser.Scene {
     this.physics.world.colliders.destroy();
     this.physics.world.setBounds(0, 0, WORLD.width, WORLD.height);
     this.cameras.main.setBounds(0, 0, WORLD.width, WORLD.height);
-    this.cameras.main.setZoom(this.scale.width < 720 ? 1.0 : 1.1);
+    this.cameras.main.setZoom(this.cameraZoom(this.scale.width, this.scale.height));
     closeDialogue();
+    this.targetRuntime.clear();
 
     this.add.image(0, 0, this.currentMap.backgroundKey).setOrigin(0, 0).setDisplaySize(WORLD.width, WORLD.height);
     this.blockers = this.physics.add.staticGroup();
@@ -168,8 +210,10 @@ class VillageScene extends Phaser.Scene {
       this.currentMap.deepWater.forEach((rect) => this.addStaticRect(rect, this.deepWater));
     }
 
+    this.buildCollisionGrid();
     this.createMapProps();
     this.createPlayer(start.x, start.y);
+    this.lastValid = { x: this.player.x, y: this.player.y };
 
     this.physics.add.collider(this.player, this.blockers);
     this.physics.add.collider(this.player, this.deepWater, () => this.bumpDeepWater());
@@ -222,7 +266,9 @@ class VillageScene extends Phaser.Scene {
       const sprite = this.targets.create(target.x, target.y, target.kind) as Phaser.Physics.Arcade.Sprite;
       sprite.setData("id", target.id);
       sprite.setData("kind", target.kind);
+      sprite.setData("maxHp", target.maxHp);
       sprite.refreshBody();
+      this.addTargetHpBar(target);
     });
 
     this.currentMap.collectibles.forEach((collectible) => {
@@ -239,10 +285,95 @@ class VillageScene extends Phaser.Scene {
     this.player.setSize(54, 66).setOffset(45, 70).setCollideWorldBounds(true);
   }
 
+  private cameraZoom(width: number, height: number) {
+    const fitWorld = Math.max(width / WORLD.width, height / WORLD.height);
+    const base = width < 720 ? 1 : 1.08;
+    return Math.max(base, fitWorld);
+  }
+
+  private addTargetHpBar(target: TargetDef) {
+    const y = target.y - 42;
+    const bg = this.add
+      .rectangle(target.x, y, 46, 6, 0x1f2517, 0.78)
+      .setStrokeStyle(1, 0xfff1b6, 0.42)
+      .setDepth(this.currentMap.playerDepth + 2);
+    const fill = this.add
+      .rectangle(target.x - 22, y, 44, 4, 0xd76a38, 1)
+      .setOrigin(0, 0.5)
+      .setDepth(this.currentMap.playerDepth + 3);
+    this.targetRuntime.set(target.id, {
+      def: target,
+      hp: target.maxHp,
+      lastHitAt: -Infinity,
+      barBg: bg,
+      barFill: fill,
+    });
+  }
+
   private addStaticRect(rect: { x: number; y: number; width: number; height: number }, group: Phaser.Physics.Arcade.StaticGroup) {
     const body = this.add.rectangle(rect.x, rect.y, rect.width, rect.height, 0x000000, 0).setVisible(false);
     this.physics.add.existing(body, true);
     group.add(body);
+  }
+
+  private buildCollisionGrid() {
+    const grid = new CollisionGrid(WORLD.width, WORLD.height, COLLISION_CELL_SIZE);
+    grid.addShapes({ rects: this.currentMap.blockers });
+    if (!state.snapshot().canSwim) {
+      grid.addShapes({ rects: this.currentMap.deepWater });
+    }
+    if (this.currentMap.collisionShapes) {
+      grid.addShapes(this.currentMap.collisionShapes);
+    }
+    this.collisionGrid = grid;
+
+    if (this.debugOverlay) {
+      this.debugOverlay.destroy();
+      this.debugOverlay = undefined;
+    }
+    if (import.meta.env.DEV) {
+      const key = `collision-debug-${this.currentMap.id}-${state.snapshot().canSwim ? "swim" : "land"}`;
+      if (this.textures.exists(key)) this.textures.remove(key);
+      this.textures.addCanvas(key, grid.renderDebugCanvas());
+      this.debugOverlay = this.add
+        .image(0, 0, key)
+        .setOrigin(0, 0)
+        .setDepth(20)
+        .setVisible(this.debugVisible);
+    }
+  }
+
+  private resolveCollision() {
+    if (!this.collisionGrid) return;
+    const newX = this.player.x;
+    const newY = this.player.y;
+    const oldX = this.lastValid.x;
+    const oldY = this.lastValid.y;
+    const blocked = this.isFootBlocked(newX, newY);
+    if (!blocked) {
+      this.lastValid = { x: newX, y: newY };
+      return;
+    }
+    const blockedX = this.isFootBlocked(newX, oldY);
+    const blockedY = this.isFootBlocked(oldX, newY);
+    if (!blockedX) {
+      this.player.setPosition(newX, oldY);
+      this.player.setVelocity(this.player.body!.velocity.x, 0);
+      this.lastValid = { x: newX, y: oldY };
+    } else if (!blockedY) {
+      this.player.setPosition(oldX, newY);
+      this.player.setVelocity(0, this.player.body!.velocity.y);
+      this.lastValid = { x: oldX, y: newY };
+    } else {
+      this.player.setPosition(oldX, oldY);
+      this.player.setVelocity(0, 0);
+    }
+  }
+
+  private isFootBlocked(x: number, y: number) {
+    if (!this.collisionGrid) return false;
+    const footY = y + FEET_OFFSET_Y;
+    return [-14, 0, 14].some((offsetX) => this.collisionGrid!.isBlocked(x + offsetX, footY));
   }
 
   private currentTerrain() {
@@ -258,7 +389,51 @@ class VillageScene extends Phaser.Scene {
     );
     this.waterBlockPromptUntil = this.time.now + 900;
     state.setTerrain("blocked-water", zone?.prompt ?? "Nước sâu. Chưa học bơi thì không thể đi tiếp.");
+    showNotice(zone?.prompt ?? "Nước sâu. Chưa học bơi thì không thể đi tiếp.");
+    this.cameras.main.shake(90, 0.002);
     updateHud(state.snapshot());
+  }
+
+  private updateTerrainHud() {
+    const snapshot = state.snapshot();
+    if (snapshot.terrain === this.lastTerrain) return;
+    this.lastTerrain = snapshot.terrain;
+    this.player.clearTint();
+    if (snapshot.terrain === "shallow-water") {
+      this.player.setTint(0x9be2ff);
+      showNotice("Lội nước: tốc độ giảm mạnh.");
+    }
+    if (snapshot.terrain === "blocked-water") {
+      this.player.setTint(0x78b6ff);
+    }
+    updateHud(snapshot);
+  }
+
+  private spawnWaterRipple(time: number) {
+    if (time - this.lastRippleAt < 220) return;
+    this.lastRippleAt = time;
+    const ripple = this.add
+      .ellipse(this.player.x, this.player.y + 31, 28, 9, 0xb7f1ff, 0.34)
+      .setDepth(this.currentMap.playerDepth - 1);
+    this.tweens.add({
+      targets: ripple,
+      alpha: 0,
+      scaleX: 1.7,
+      scaleY: 1.45,
+      duration: 520,
+      ease: "Sine.easeOut",
+      onComplete: () => ripple.destroy(),
+    });
+  }
+
+  private updateTargetRecovery(time: number) {
+    this.targetRuntime.forEach((target) => {
+      if (target.hp <= 0) return;
+      if (time - target.lastHitAt < target.def.recoveryDelayMs) return;
+      if (target.hp >= target.def.maxHp) return;
+      target.hp = Math.min(target.def.maxHp, target.hp + (target.def.recoveryPerSecond / 60));
+      this.renderTargetHp(target);
+    });
   }
 
   private handleExitOverlap(time: number) {
@@ -379,6 +554,7 @@ class VillageScene extends Phaser.Scene {
     this.strikeUntil = time + 220;
     this.player.setTint(0xffe28a);
     this.time.delayedCall(100, () => this.player.clearTint());
+    this.time.delayedCall(360, () => showSkillState("Sẵn sàng"));
 
     const arc = this.add
       .circle(this.player.x + (this.player.flipX ? -34 : 34), this.player.y + 8, 30, 0xfff0a8, 0.28)
@@ -396,11 +572,35 @@ class VillageScene extends Phaser.Scene {
       return;
     }
 
+    const id = target.getData("id") as string;
+    const runtime = this.targetRuntime.get(id);
+    if (!runtime) return;
+    runtime.hp = Math.max(0, runtime.hp - STAFF_DAMAGE);
+    runtime.lastHitAt = time;
+    this.renderTargetHp(runtime);
+    this.floatText(target.x, target.y - 32, `-${STAFF_DAMAGE} HP`, "#ffe7a6");
+    showSkillState("Đang vung gậy");
+
+    if (runtime.hp > 0) {
+      state.setPrompt(`Mục tiêu còn ${Math.ceil(runtime.hp)}/${runtime.def.maxHp} HP. Đánh liền tay kẻo nó hồi.`);
+      updateHud(state.snapshot());
+      return;
+    }
+
     target.disableBody(true, true);
-    state.defeatTarget(target.getData("id") as string, this.currentMap.id);
+    runtime.barBg.destroy();
+    runtime.barFill.destroy();
+    state.defeatTarget(id, this.currentMap.id);
     persistProgress();
-    this.floatText(target.x, target.y - 32, "trúng đòn", "#ffe7a6");
+    this.floatText(target.x, target.y - 48, "hạ mục tiêu", "#fff1b6");
     updateHud(state.snapshot());
+  }
+
+  private renderTargetHp(target: TargetRuntime) {
+    target.barFill.width = 44 * Phaser.Math.Clamp(target.hp / target.def.maxHp, 0, 1);
+    if (target.hp <= target.def.maxHp * 0.34) target.barFill.setFillStyle(0xd64d3d);
+    else if (target.hp <= target.def.maxHp * 0.67) target.barFill.setFillStyle(0xe1a23a);
+    else target.barFill.setFillStyle(0x73b35a);
   }
 
   private playHeroAnimation(velocity: Phaser.Math.Vector2, time: number) {
@@ -572,6 +772,29 @@ function updateSaveStatus(text: string) {
   window.setTimeout(() => {
     status.textContent = "Tự lưu";
   }, 1200);
+}
+
+function showSkillState(text: string) {
+  const skill = document.querySelector<HTMLElement>("#staff-skill");
+  const stateNode = document.querySelector<HTMLElement>("#skill-state");
+  if (stateNode) stateNode.textContent = text;
+  if (!skill) return;
+  skill.classList.toggle("is-active", text !== "Sẵn sàng");
+}
+
+function showNotice(text: string) {
+  const stack = document.querySelector<HTMLElement>("#notice-stack");
+  if (!stack) return;
+  const notice = document.createElement("div");
+  notice.className = "notice";
+  notice.textContent = text;
+  stack.prepend(notice);
+  while (stack.children.length > 3) stack.lastElementChild?.remove();
+  window.setTimeout(() => {
+    notice.style.opacity = "0";
+    notice.style.transform = "translateY(-4px)";
+  }, 1700);
+  window.setTimeout(() => notice.remove(), 2200);
 }
 
 function wireSaveUi(onReset: () => void) {
