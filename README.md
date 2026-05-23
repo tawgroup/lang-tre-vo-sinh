@@ -25,6 +25,21 @@ Mặc định Vite chạy ở `http://localhost:5173`; trong phiên Codex hiện
 4. Nhặt 3 thẻ tre, luyện gậy.
 5. Quay về đình làng để hoàn thành nhập môn.
 
+## Mở rộng map và cốt truyện
+
+- `src/content/maps.ts`: cấu hình map, background, blocker, vùng nước, exit, NPC, collectibles, mục tiêu luyện.
+- `src/content/story.ts`: thoại/cốt truyện theo phase.
+- `src/gameState.ts`: phase quest, inventory/progress, serialize save.
+- `src/save.ts`: auto-save qua `localStorage`.
+
+Muốn thêm map mới: thêm id vào `MapId`, thêm entry trong `MAPS`, rồi thêm background vào `public/assets/maps/`.
+
+## Vật lý/terrain
+
+- Deep water đang là collider: chưa học bơi thì không đi thẳng xuống ao/hồ.
+- Shallow water làm nhân vật đi chậm và đổi trạng thái HUD thành `Lội nước`.
+- Exit xuống map mới nằm ở vùng đường đất phía nam, không còn bị blocker che.
+
 ## Asset
 
-Sprite võ sinh và thầy Ba được AI-generate, xử lý chroma-key sang PNG alpha, rồi chuẩn hóa thành spritesheet trong `public/assets/`.
+Sprite võ sinh, thầy Ba, và map background được AI-generate, xử lý/chuẩn hóa rồi đặt trong `public/assets/`.

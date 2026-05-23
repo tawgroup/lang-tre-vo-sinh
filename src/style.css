@@ -97,12 +97,18 @@ button {
   align-items: center;
   min-height: 20px;
   margin-top: 6px;
+  margin-right: 6px;
   border-radius: 999px;
   padding: 3px 8px;
   background: rgba(48, 112, 71, 0.13);
   color: #3a6030;
   font-size: 0.72rem;
   font-weight: 850;
+}
+
+.map-chip--terrain {
+  background: rgba(91, 179, 162, 0.17);
+  color: #22685f;
 }
 
 h1 {
@@ -152,6 +158,29 @@ h1 {
 
 .meter--bamboo span {
   background: linear-gradient(90deg, #477139, #c7c86b);
+}
+
+.save-row {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  color: #516133;
+  font-size: 0.75rem;
+  font-weight: 850;
+}
+
+.save-row button {
+  min-height: 28px;
+  border: 1px solid rgba(64, 77, 45, 0.18);
+  border-radius: 7px;
+  padding: 4px 8px;
+  background: rgba(255, 247, 214, 0.75);
+  color: #3a331f;
+  font-size: 0.74rem;
+  font-weight: 900;
 }
 
 .prompt {
