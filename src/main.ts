@@ -8,6 +8,7 @@ import { clearSave, loadSave, writeSave } from "./save";
 
 const FEET_OFFSET_Y = 22;
 const COLLISION_CELL_SIZE = 8;
+const FOOT_SAMPLE_OFFSETS = [-8, 0, 8] as const;
 
 type Action = "up" | "down" | "left" | "right" | "strike" | "interact";
 type Dialogue = DialogueScript & {
@@ -383,7 +384,7 @@ class VillageScene extends Phaser.Scene {
   private isFootBlocked(x: number, y: number) {
     if (!this.collisionGrid) return false;
     const footY = y + FEET_OFFSET_Y;
-    return [-14, 0, 14].some((offsetX) => this.collisionGrid!.isBlocked(x + offsetX, footY));
+    return FOOT_SAMPLE_OFFSETS.some((offsetX) => this.collisionGrid!.isBlocked(x + offsetX, footY));
   }
 
   private currentTerrain() {

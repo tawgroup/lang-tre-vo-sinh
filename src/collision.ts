@@ -28,6 +28,7 @@ export class CollisionGrid {
   readonly cols: number;
   readonly rows: number;
   private grid: Uint8Array;
+  private pixelMask?: Uint8Array;
 
   constructor(
     readonly worldWidth: number,
@@ -54,20 +55,27 @@ export class CollisionGrid {
     if (!ctx) return;
     ctx.drawImage(source, 0, 0, this.worldWidth, this.worldHeight);
     const pixels = ctx.getImageData(0, 0, this.worldWidth, this.worldHeight).data;
-    for (let row = 0; row < this.rows; row++) {
-      for (let col = 0; col < this.cols; col++) {
-        const x = Math.min(this.worldWidth - 1, Math.floor(col * this.cellSize + this.cellSize / 2));
-        const y = Math.min(this.worldHeight - 1, Math.floor(row * this.cellSize + this.cellSize / 2));
-        const alpha = pixels[(y * this.worldWidth + x) * 4 + 3];
-        if (alpha > 24) this.setCell(col, row);
+    const mask = new Uint8Array(this.worldWidth * this.worldHeight);
+    for (let i = 0; i < mask.length; i++) {
+      const r = pixels[i * 4];
+      const g = pixels[i * 4 + 1];
+      const b = pixels[i * 4 + 2];
+      const alpha = pixels[i * 4 + 3];
+      if (alpha > 24 && r + g + b > 24) {
+        mask[i] = 1;
       }
     }
+    this.pixelMask = mask;
   }
 
   isBlocked(x: number, y: number): boolean {
-    const col = Math.floor(x / this.cellSize);
-    const row = Math.floor(y / this.cellSize);
-    if (col < 0 || col >= this.cols || row < 0 || row >= this.rows) return true;
+    const px = Math.floor(x);
+    const py = Math.floor(y);
+    if (px < 0 || px >= this.worldWidth || py < 0 || py >= this.worldHeight) return true;
+    if (this.pixelMask?.[py * this.worldWidth + px] === 1) return true;
+
+    const col = Math.floor(px / this.cellSize);
+    const row = Math.floor(py / this.cellSize);
     return this.grid[row * this.cols + col] === 1;
   }
 
@@ -158,6 +166,17 @@ export class CollisionGrid {
     canvas.height = this.worldHeight;
     const ctx = canvas.getContext("2d")!;
     ctx.fillStyle = "rgba(225, 64, 72, 0.42)";
+    if (this.pixelMask) {
+      const image = ctx.createImageData(this.worldWidth, this.worldHeight);
+      for (let i = 0; i < this.pixelMask.length; i++) {
+        if (this.pixelMask[i] !== 1) continue;
+        image.data[i * 4] = 225;
+        image.data[i * 4 + 1] = 64;
+        image.data[i * 4 + 2] = 72;
+        image.data[i * 4 + 3] = 108;
+      }
+      ctx.putImageData(image, 0, 0);
+    }
     for (let row = 0; row < this.rows; row++) {
       for (let col = 0; col < this.cols; col++) {
         if (this.grid[row * this.cols + col] === 1) {

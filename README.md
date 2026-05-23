@@ -39,9 +39,9 @@ Muốn thêm map mới: thêm id vào `MapId`, thêm entry trong `MAPS`, thêm b
 - Deep water đang là collider: chưa học bơi thì không đi thẳng xuống ao/hồ.
 - Shallow water làm nhân vật đi chậm và đổi trạng thái HUD thành `Lội nước`.
 - Exit xuống map mới nằm ở vùng đường đất phía nam, không còn bị blocker che.
-- `src/collision.ts` tạo collision matrix 8px/cell. Ảnh map chỉ là visual; grid/mask mới quyết định ô nào đi được.
+- `src/collision.ts` tạo collision matrix 8px/cell cho shape lớn và đọc collision mask theo pixel thật cho chi tiết nhỏ. Ảnh map chỉ là visual; grid/mask mới quyết định ô nào đi được.
 - Dev mode bấm `M` để bật overlay đỏ debug vùng bị chặn.
-- Collision tổng quát dùng mask asset: vẽ vùng cấm bằng pixel/SVG có alpha trong `public/assets/collision/<map>.svg` hoặc PNG, rồi khai báo `collisionMaskKey`/`collisionMaskUrl` trong `src/content/maps.ts`.
+- Collision tổng quát dùng mask asset: vẽ vùng cấm bằng pixel/SVG có alpha trong `public/assets/collision/<map>.svg` hoặc PNG, rồi khai báo `collisionMaskKey`/`collisionMaskUrl` trong `src/content/maps.ts`. Pixel trong suốt là đi được; pixel có màu/alpha là chặn.
 - Rect/ellipse/polygon trong `src/content/maps.ts` chỉ nên dùng cho vùng logic lớn như biên map, ao sâu hoặc ruộng; không dùng để vá từng hàng rào nhỏ.
 - Bù nhìn/cọc tre có HP bar, bị đánh trừ máu; nếu ngắt nhịp quá lâu thì hồi phục.
 
