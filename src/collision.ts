@@ -11,10 +11,17 @@ export type Polygon = {
   points: Point[];
 };
 
+export type Segment = {
+  from: Point;
+  to: Point;
+  width: number;
+};
+
 export type CollisionShapes = {
   rects?: Rect[];
   ellipses?: Ellipse[];
   polygons?: Polygon[];
+  segments?: Segment[];
 };
 
 export class CollisionGrid {
@@ -36,6 +43,7 @@ export class CollisionGrid {
     shapes.rects?.forEach((r) => this.rasterizeRect(r));
     shapes.ellipses?.forEach((e) => this.rasterizeEllipse(e));
     shapes.polygons?.forEach((p) => this.rasterizePolygon(p));
+    shapes.segments?.forEach((s) => this.rasterizeSegment(s));
   }
 
   isBlocked(x: number, y: number): boolean {
@@ -107,6 +115,25 @@ export class CollisionGrid {
     }
   }
 
+  private rasterizeSegment(s: Segment) {
+    const radius = s.width / 2;
+    const minX = Math.min(s.from.x, s.to.x) - radius;
+    const maxX = Math.max(s.from.x, s.to.x) + radius;
+    const minY = Math.min(s.from.y, s.to.y) - radius;
+    const maxY = Math.max(s.from.y, s.to.y) + radius;
+    const c0 = Math.floor(minX / this.cellSize);
+    const c1 = Math.floor(maxX / this.cellSize);
+    const r0 = Math.floor(minY / this.cellSize);
+    const r1 = Math.floor(maxY / this.cellSize);
+    for (let row = r0; row <= r1; row++) {
+      for (let col = c0; col <= c1; col++) {
+        const cx = col * this.cellSize + this.cellSize / 2;
+        const cy = row * this.cellSize + this.cellSize / 2;
+        if (distanceToSegment(cx, cy, s.from, s.to) <= radius) this.setCell(col, row);
+      }
+    }
+  }
+
   renderDebugCanvas(): HTMLCanvasElement {
     const canvas = document.createElement("canvas");
     canvas.width = this.worldWidth;
@@ -127,6 +154,17 @@ export class CollisionGrid {
     }
     return canvas;
   }
+}
+
+function distanceToSegment(x: number, y: number, from: Point, to: Point): number {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const lengthSq = dx * dx + dy * dy;
+  if (lengthSq === 0) return Math.hypot(x - from.x, y - from.y);
+  const t = Math.max(0, Math.min(1, ((x - from.x) * dx + (y - from.y) * dy) / lengthSq));
+  const closestX = from.x + t * dx;
+  const closestY = from.y + t * dy;
+  return Math.hypot(x - closestX, y - closestY);
 }
 
 function pointInPolygon(x: number, y: number, points: Point[]): boolean {

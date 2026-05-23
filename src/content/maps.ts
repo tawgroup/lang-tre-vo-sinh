@@ -262,6 +262,17 @@ export const MAPS: Record<MapId, MapDef> = {
         { x: 1128, y: 410, rx: 225, ry: 145 },
         { x: 320, y: 704, rx: 210, ry: 42 },
       ],
+      segments: [
+        { from: { x: 300, y: 332 }, to: { x: 430, y: 342 }, width: 24 },
+        { from: { x: 458, y: 350 }, to: { x: 575, y: 364 }, width: 24 },
+        { from: { x: 610, y: 378 }, to: { x: 696, y: 414 }, width: 24 },
+        { from: { x: 692, y: 414 }, to: { x: 676, y: 520 }, width: 24 },
+        { from: { x: 296, y: 506 }, to: { x: 434, y: 520 }, width: 24 },
+        { from: { x: 506, y: 532 }, to: { x: 626, y: 545 }, width: 24 },
+        { from: { x: 590, y: 236 }, to: { x: 688, y: 250 }, width: 22 },
+        { from: { x: 782, y: 252 }, to: { x: 878, y: 252 }, width: 22 },
+        { from: { x: 878, y: 252 }, to: { x: 984, y: 248 }, width: 22 },
+      ],
       polygons: [
         {
           points: [
