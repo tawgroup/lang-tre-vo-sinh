@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Võ Sinh Làng Tre</title>
+  </head>
+  <body>
+    <main id="shell">
+      <section id="game-root" aria-label="Võ Sinh Làng Tre"></section>
+
+      <div id="hud" aria-live="polite">
+        <div class="hud-card hud-card--title">
+          <span class="crest"></span>
+          <div>
+            <p class="eyebrow">Võ Sinh Làng Tre</p>
+            <h1 id="quest-title">Tìm thầy ở đình làng</h1>
+            <span id="map-name" class="map-chip">Làng Tre</span>
+          </div>
+        </div>
+
+        <div class="hud-card meters">
+          <div class="meter-row">
+            <span>Sen</span>
+            <strong id="lotus-count">0/5</strong>
+          </div>
+          <div class="meter">
+            <span id="lotus-bar"></span>
+          </div>
+          <div class="meter-row">
+            <span>Bù nhìn</span>
+            <strong id="dummy-count">0/4</strong>
+          </div>
+          <div class="meter meter--warm">
+            <span id="dummy-bar"></span>
+          </div>
+          <div class="meter-row">
+            <span>Thẻ tre</span>
+            <strong id="bamboo-count">0/3</strong>
+          </div>
+          <div class="meter meter--bamboo">
+            <span id="bamboo-bar"></span>
+          </div>
+        </div>
+
+        <div id="prompt" class="prompt">WASD/Phím mũi tên để đi, Space/E để nói chuyện hoặc tương tác.</div>
+      </div>
+
+      <div id="dialogue" class="dialogue" hidden>
+        <div class="dialogue-speaker" id="dialogue-speaker">Thầy Ba</div>
+        <p id="dialogue-text"></p>
+        <div class="dialogue-hint" id="dialogue-hint">Space/E để tiếp tục</div>
+      </div>
+
+      <div id="touch-controls" aria-label="Điều khiển cảm ứng">
+        <div class="touch-pad">
+          <button data-action="up" aria-label="Lên">▲</button>
+          <div>
+            <button data-action="left" aria-label="Trái">◀</button>
+            <button data-action="down" aria-label="Xuống">▼</button>
+            <button data-action="right" aria-label="Phải">▶</button>
+          </div>
+        </div>
+        <div class="touch-actions">
+          <button data-action="interact" aria-label="Tương tác">⎋</button>
+          <button data-action="strike" aria-label="Ra đòn">✦</button>
+        </div>
+      </div>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
