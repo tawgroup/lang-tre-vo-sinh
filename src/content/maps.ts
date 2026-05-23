@@ -18,8 +18,8 @@ export type Point = {
   y: number;
 };
 
-export type CollectibleKind = "lotus" | "bamboo-token";
-export type TargetKind = "dummy" | "bamboo-post";
+export type CollectibleKind = "lotus" | "bamboo-token" | "market-scroll" | "river-pearl" | "mountain-seal";
+export type TargetKind = "dummy" | "bamboo-post" | "market-post" | "river-post" | "mountain-post";
 export type TerrainKind = "shallow-water" | "deep-water";
 
 export type CollectibleDef = Point & {
@@ -104,6 +104,74 @@ const bambooBlockers: Rect[] = [
   { x: 1140, y: 914, width: 600, height: 20 },
 ];
 
+const marketBlockers: Rect[] = [
+  { x: 34, y: 460, width: 68, height: 920 },
+  { x: 1406, y: 460, width: 68, height: 920 },
+  { x: 720, y: 18, width: 1440, height: 36 },
+  { x: 720, y: 914, width: 1440, height: 20 },
+  { x: 290, y: 178, width: 380, height: 126 },
+  { x: 1044, y: 172, width: 250, height: 150 },
+  { x: 1265, y: 330, width: 260, height: 160 },
+  { x: 248, y: 526, width: 360, height: 148 },
+  { x: 1158, y: 732, width: 360, height: 180 },
+  { x: 1324, y: 516, width: 260, height: 150 },
+  { x: 95, y: 776, width: 210, height: 210 },
+];
+
+const riverBlockers: Rect[] = [
+  { x: 34, y: 460, width: 68, height: 920 },
+  { x: 720, y: 18, width: 1440, height: 36 },
+  { x: 1018, y: 540, width: 650, height: 650 },
+  { x: 690, y: 835, width: 950, height: 170 },
+  { x: 168, y: 760, width: 300, height: 260 },
+  { x: 1230, y: 230, width: 330, height: 330 },
+  { x: 526, y: 392, width: 120, height: 96 },
+];
+
+const mountainBlockers: Rect[] = [
+  { x: 34, y: 460, width: 68, height: 920 },
+  { x: 1406, y: 460, width: 68, height: 920 },
+  { x: 720, y: 18, width: 1440, height: 36 },
+  { x: 720, y: 914, width: 1440, height: 20 },
+  { x: 170, y: 290, width: 280, height: 400 },
+  { x: 1230, y: 250, width: 330, height: 420 },
+  { x: 1140, y: 690, width: 420, height: 280 },
+  { x: 840, y: 116, width: 230, height: 155 },
+  { x: 1076, y: 426, width: 250, height: 160 },
+];
+
+const AFTER_BAMBOO: QuestPhase[] = [
+  "bamboo-training",
+  "gate-open",
+  "market-ready",
+  "market-training",
+  "river-ready",
+  "river-training",
+  "mountain-ready",
+  "mountain-training",
+  "chapter-complete",
+];
+
+const AFTER_MARKET: QuestPhase[] = [
+  "market-ready",
+  "market-training",
+  "river-ready",
+  "river-training",
+  "mountain-ready",
+  "mountain-training",
+  "chapter-complete",
+];
+
+const AFTER_RIVER: QuestPhase[] = [
+  "river-ready",
+  "river-training",
+  "mountain-ready",
+  "mountain-training",
+  "chapter-complete",
+];
+
+const AFTER_MOUNTAIN: QuestPhase[] = ["mountain-ready", "mountain-training", "chapter-complete"];
+
 export const MAPS: Record<MapId, MapDef> = {
   village: {
     id: "village",
@@ -158,8 +226,20 @@ export const MAPS: Record<MapId, MapDef> = {
         height: 70,
         to: "bamboo",
         spawn: { x: 720, y: 155 },
-        allowedPhases: ["bamboo-ready", "bamboo-training", "gate-open", "complete"],
+        allowedPhases: ["bamboo-ready", ...AFTER_BAMBOO],
         blockedPrompt: "Thầy Ba sẽ cho sang bãi tre sau khi con xong bài sân làng.",
+      },
+      {
+        id: "east-market-road",
+        label: "Đường sang chợ huyện",
+        x: 1390,
+        y: 486,
+        width: 90,
+        height: 260,
+        to: "market",
+        spawn: { x: 150, y: 472 },
+        allowedPhases: AFTER_MARKET,
+        blockedPrompt: "Cổng hội chưa mở. Hoàn thành bài bãi tre rồi về đình gặp thầy Ba.",
       },
     ],
     npc: { id: "master", spriteKey: "master-npc", x: 724, y: 238 },
@@ -261,7 +341,7 @@ export const MAPS: Record<MapId, MapDef> = {
         height: 140,
         to: "village",
         spawn: { x: 700, y: 780 },
-        allowedPhases: ["bamboo-training", "gate-open", "complete"],
+        allowedPhases: AFTER_BAMBOO,
         blockedPrompt: "Đường về làng ở ngay phía bắc.",
       },
     ],
@@ -292,6 +372,344 @@ export const MAPS: Record<MapId, MapDef> = {
             { x: 1360, y: 104 },
             { x: 1362, y: 340 },
             { x: 1190, y: 310 },
+          ],
+        },
+      ],
+    },
+  },
+  market: {
+    id: "market",
+    name: "Chợ Huyện",
+    backgroundKey: "map-market",
+    backgroundUrl: "/assets/maps/market.jpg",
+    start: { x: 150, y: 472 },
+    fallbackSpawn: { x: 150, y: 472 },
+    playerDepth: 7,
+    blockers: marketBlockers,
+    shallowTerrain: [
+      {
+        id: "market-pond-edge",
+        kind: "shallow-water",
+        x: 1325,
+        y: 218,
+        width: 210,
+        height: 150,
+        speedMultiplier: 0.55,
+        prompt: "Mép ao sau chợ trơn. Đi chậm kẻo trượt xuống nước.",
+      },
+      {
+        id: "market-ditch",
+        kind: "shallow-water",
+        x: 1310,
+        y: 840,
+        width: 230,
+        height: 95,
+        speedMultiplier: 0.62,
+        prompt: "Mương lúa cuối chợ làm bước chân nặng hơn.",
+      },
+    ],
+    deepWater: [
+      {
+        id: "market-pond-deep",
+        kind: "deep-water",
+        x: 1350,
+        y: 165,
+        width: 230,
+        height: 185,
+        speedMultiplier: 0,
+        prompt: "Ao sau chợ sâu. Chưa học bơi thì tránh vòng qua đường đất.",
+      },
+      {
+        id: "market-canal",
+        kind: "deep-water",
+        x: 1325,
+        y: 875,
+        width: 250,
+        height: 90,
+        speedMultiplier: 0,
+        prompt: "Mương chợ nước sâu, không thể băng ngang.",
+      },
+    ],
+    exits: [
+      {
+        id: "west-village-road",
+        label: "Đường về làng",
+        x: 55,
+        y: 470,
+        width: 110,
+        height: 260,
+        to: "village",
+        spawn: { x: 1335, y: 486 },
+        allowedPhases: AFTER_MARKET,
+        blockedPrompt: "Đường về làng ở phía tây.",
+      },
+      {
+        id: "east-river-road",
+        label: "Lối xuống bến sông",
+        x: 1388,
+        y: 508,
+        width: 95,
+        height: 245,
+        to: "river",
+        spawn: { x: 135, y: 456 },
+        allowedPhases: AFTER_RIVER,
+        blockedPrompt: "Giúp đủ việc chợ và đạt cấp 3 rồi mới được xuống bến sông.",
+      },
+    ],
+    collectibles: [
+      { id: "market-scroll-1", kind: "market-scroll", x: 366, y: 198 },
+      { id: "market-scroll-2", kind: "market-scroll", x: 1036, y: 286 },
+      { id: "market-scroll-3", kind: "market-scroll", x: 446, y: 706 },
+      { id: "market-scroll-4", kind: "market-scroll", x: 1120, y: 688 },
+    ],
+    targets: [
+      { id: "market-post-1", kind: "market-post", x: 318, y: 282, maxHp: 5, recoveryPerSecond: 0.78, recoveryDelayMs: 1350 },
+      { id: "market-post-2", kind: "market-post", x: 430, y: 294, maxHp: 5, recoveryPerSecond: 0.78, recoveryDelayMs: 1350 },
+      { id: "market-post-3", kind: "market-post", x: 540, y: 560, maxHp: 5, recoveryPerSecond: 0.78, recoveryDelayMs: 1350 },
+      { id: "market-post-4", kind: "market-post", x: 760, y: 310, maxHp: 5, recoveryPerSecond: 0.78, recoveryDelayMs: 1350 },
+    ],
+    collisionShapes: {
+      ellipses: [
+        { x: 1350, y: 165, rx: 138, ry: 94 },
+        { x: 1325, y: 875, rx: 145, ry: 55 },
+      ],
+      polygons: [
+        {
+          points: [
+            { x: 1038, y: 690 },
+            { x: 1360, y: 680 },
+            { x: 1360, y: 918 },
+            { x: 972, y: 918 },
+          ],
+        },
+        {
+          points: [
+            { x: 176, y: 110 },
+            { x: 500, y: 118 },
+            { x: 520, y: 256 },
+            { x: 160, y: 276 },
+          ],
+        },
+      ],
+    },
+  },
+  river: {
+    id: "river",
+    name: "Bến Sông",
+    backgroundKey: "map-river",
+    backgroundUrl: "/assets/maps/river.jpg",
+    start: { x: 135, y: 456 },
+    fallbackSpawn: { x: 135, y: 456 },
+    playerDepth: 7,
+    blockers: riverBlockers,
+    shallowTerrain: [
+      {
+        id: "river-muddy-bank",
+        kind: "shallow-water",
+        x: 740,
+        y: 650,
+        width: 390,
+        height: 165,
+        speedMultiplier: 0.48,
+        prompt: "Bờ bùn bến sông rất trơn. Giữ bước sát đường khô.",
+      },
+      {
+        id: "river-lotus-bank",
+        kind: "shallow-water",
+        x: 205,
+        y: 735,
+        width: 280,
+        height: 170,
+        speedMultiplier: 0.52,
+        prompt: "Nước ven đầm sen cạn nhưng làm chậm thân pháp.",
+      },
+    ],
+    deepWater: [
+      {
+        id: "main-river-deep",
+        kind: "deep-water",
+        x: 1052,
+        y: 560,
+        width: 720,
+        height: 650,
+        speedMultiplier: 0,
+        prompt: "Dòng sông sâu, chưa đủ bài thủy bộ thì không thể lội qua.",
+      },
+      {
+        id: "lower-river-deep",
+        kind: "deep-water",
+        x: 690,
+        y: 838,
+        width: 1120,
+        height: 168,
+        speedMultiplier: 0,
+        prompt: "Nước dưới bến chảy mạnh. Đi cầu hoặc vòng theo bờ đất.",
+      },
+      {
+        id: "left-lotus-deep",
+        kind: "deep-water",
+        x: 160,
+        y: 780,
+        width: 290,
+        height: 230,
+        speedMultiplier: 0,
+        prompt: "Đầm sen sâu. Đừng băng qua mặt nước.",
+      },
+    ],
+    exits: [
+      {
+        id: "west-market-road",
+        label: "Đường về chợ",
+        x: 56,
+        y: 456,
+        width: 110,
+        height: 245,
+        to: "market",
+        spawn: { x: 1335, y: 508 },
+        allowedPhases: AFTER_RIVER,
+        blockedPrompt: "Đường về chợ ở phía tây.",
+      },
+      {
+        id: "north-mountain-trail",
+        label: "Lối lên Núi Trúc",
+        x: 650,
+        y: 74,
+        width: 260,
+        height: 130,
+        to: "mountain",
+        spawn: { x: 642, y: 780 },
+        allowedPhases: AFTER_MOUNTAIN,
+        blockedPrompt: "Cần đủ ngọc sông và cấp 5 trước khi lên Núi Trúc.",
+      },
+    ],
+    collectibles: [
+      { id: "river-pearl-1", kind: "river-pearl", x: 398, y: 308 },
+      { id: "river-pearl-2", kind: "river-pearl", x: 625, y: 602 },
+      { id: "river-pearl-3", kind: "river-pearl", x: 835, y: 462 },
+      { id: "river-pearl-4", kind: "river-pearl", x: 492, y: 742 },
+    ],
+    targets: [
+      { id: "river-post-1", kind: "river-post", x: 330, y: 282, maxHp: 6, recoveryPerSecond: 0.9, recoveryDelayMs: 1250 },
+      { id: "river-post-2", kind: "river-post", x: 528, y: 525, maxHp: 6, recoveryPerSecond: 0.9, recoveryDelayMs: 1250 },
+      { id: "river-post-3", kind: "river-post", x: 712, y: 382, maxHp: 6, recoveryPerSecond: 0.9, recoveryDelayMs: 1250 },
+      { id: "river-post-4", kind: "river-post", x: 820, y: 690, maxHp: 6, recoveryPerSecond: 0.9, recoveryDelayMs: 1250 },
+    ],
+    collisionShapes: {
+      ellipses: [
+        { x: 1035, y: 548, rx: 392, ry: 318 },
+        { x: 170, y: 780, rx: 180, ry: 128 },
+      ],
+      polygons: [
+        {
+          points: [
+            { x: 300, y: 720 },
+            { x: 1120, y: 720 },
+            { x: 1210, y: 920 },
+            { x: 180, y: 920 },
+          ],
+        },
+        {
+          points: [
+            { x: 1200, y: 110 },
+            { x: 1440, y: 120 },
+            { x: 1440, y: 590 },
+            { x: 1080, y: 480 },
+          ],
+        },
+      ],
+    },
+  },
+  mountain: {
+    id: "mountain",
+    name: "Núi Trúc",
+    backgroundKey: "map-mountain",
+    backgroundUrl: "/assets/maps/mountain.jpg",
+    start: { x: 642, y: 780 },
+    fallbackSpawn: { x: 642, y: 780 },
+    playerDepth: 7,
+    blockers: mountainBlockers,
+    shallowTerrain: [
+      {
+        id: "misty-edge",
+        kind: "shallow-water",
+        x: 138,
+        y: 660,
+        width: 260,
+        height: 210,
+        speedMultiplier: 0.58,
+        prompt: "Mép núi phủ sương, bước chân chậm lại để khỏi trượt.",
+      },
+    ],
+    deepWater: [
+      {
+        id: "cliff-mist",
+        kind: "deep-water",
+        x: 170,
+        y: 655,
+        width: 300,
+        height: 390,
+        speedMultiplier: 0,
+        prompt: "Vực sương sâu, không thể bước khỏi đường đá.",
+      },
+      {
+        id: "right-cliff",
+        kind: "deep-water",
+        x: 1330,
+        y: 600,
+        width: 255,
+        height: 620,
+        speedMultiplier: 0,
+        prompt: "Vách núi dựng đứng. Bám đường lát đá mà đi.",
+      },
+    ],
+    exits: [
+      {
+        id: "south-river-trail",
+        label: "Đường xuống bến sông",
+        x: 642,
+        y: 886,
+        width: 290,
+        height: 95,
+        to: "river",
+        spawn: { x: 650, y: 165 },
+        allowedPhases: AFTER_MOUNTAIN,
+        blockedPrompt: "Đường xuống bến sông ở phía nam.",
+      },
+    ],
+    collectibles: [
+      { id: "mountain-seal-1", kind: "mountain-seal", x: 436, y: 312 },
+      { id: "mountain-seal-2", kind: "mountain-seal", x: 622, y: 266 },
+      { id: "mountain-seal-3", kind: "mountain-seal", x: 908, y: 350 },
+      { id: "mountain-seal-4", kind: "mountain-seal", x: 714, y: 622 },
+      { id: "mountain-seal-5", kind: "mountain-seal", x: 484, y: 734 },
+    ],
+    targets: [
+      { id: "mountain-post-1", kind: "mountain-post", x: 420, y: 388, maxHp: 8, recoveryPerSecond: 1.05, recoveryDelayMs: 1150 },
+      { id: "mountain-post-2", kind: "mountain-post", x: 555, y: 368, maxHp: 8, recoveryPerSecond: 1.05, recoveryDelayMs: 1150 },
+      { id: "mountain-post-3", kind: "mountain-post", x: 690, y: 382, maxHp: 8, recoveryPerSecond: 1.05, recoveryDelayMs: 1150 },
+      { id: "mountain-post-4", kind: "mountain-post", x: 835, y: 480, maxHp: 8, recoveryPerSecond: 1.05, recoveryDelayMs: 1150 },
+      { id: "mountain-post-5", kind: "mountain-post", x: 600, y: 600, maxHp: 8, recoveryPerSecond: 1.05, recoveryDelayMs: 1150 },
+    ],
+    collisionShapes: {
+      ellipses: [
+        { x: 170, y: 655, rx: 180, ry: 255 },
+        { x: 1330, y: 600, rx: 170, ry: 310 },
+      ],
+      polygons: [
+        {
+          points: [
+            { x: 760, y: 64 },
+            { x: 1070, y: 72 },
+            { x: 1065, y: 250 },
+            { x: 735, y: 248 },
+          ],
+        },
+        {
+          points: [
+            { x: 1010, y: 356 },
+            { x: 1208, y: 365 },
+            { x: 1198, y: 560 },
+            { x: 958, y: 552 },
           ],
         },
       ],

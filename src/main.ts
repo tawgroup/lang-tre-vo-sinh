@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import "./style.css";
 import { CollisionGrid } from "./collision";
-import { MAPS, WORLD, rectContains, type ExitDef, type MapDef, type TargetDef } from "./content/maps";
+import { MAPS, WORLD, rectContains, type CollectibleKind, type ExitDef, type MapDef, type TargetDef } from "./content/maps";
 import { masterDialogue, type DialogueScript } from "./content/story";
 import { GameState, type GameSnapshot, type MapId } from "./gameState";
 import { clearSave, loadSave, writeSave } from "./save";
@@ -23,7 +23,6 @@ type TargetRuntime = {
 
 const HERO_SCALE = 0.48;
 const WALK_SPEED = 190;
-const STAFF_DAMAGE = 1;
 const state = new GameState(loadSave());
 const pressedActions = new Set<Action>();
 
@@ -501,7 +500,7 @@ class VillageScene extends Phaser.Scene {
       speaker: "Thầy Ba",
       lines: [
         "Con đã đi đủ hai bài: lễ ở làng, thân pháp ở bãi tre.",
-        "Từ hôm nay con là võ sinh của làng Tre. Mai ta sẽ mở đường sang chợ huyện.",
+        "Từ hôm nay cổng hội mở. Sang chợ huyện giúp việc làng, rồi qua bến sông và Núi Trúc.",
       ],
       onDone: () => {
         state.completeFestival();
@@ -537,7 +536,7 @@ class VillageScene extends Phaser.Scene {
 
   private collect(collectible: Phaser.Physics.Arcade.Sprite) {
     const id = collectible.getData("id") as string;
-    const kind = collectible.getData("kind") as "lotus" | "bamboo-token";
+    const kind = collectible.getData("kind") as CollectibleKind;
     const didCollect = state.collect(id, kind);
     if (!didCollect) {
       updateHud(state.snapshot());
@@ -546,7 +545,7 @@ class VillageScene extends Phaser.Scene {
 
     collectible.disableBody(true, true);
     persistProgress();
-    this.floatText(collectible.x, collectible.y - 20, kind === "lotus" ? "+ sen" : "+ thẻ tre", "#fff4b8");
+    this.floatText(collectible.x, collectible.y - 20, collectText(kind), "#fff4b8");
     updateHud(state.snapshot());
   }
 
@@ -575,10 +574,11 @@ class VillageScene extends Phaser.Scene {
     const id = target.getData("id") as string;
     const runtime = this.targetRuntime.get(id);
     if (!runtime) return;
-    runtime.hp = Math.max(0, runtime.hp - STAFF_DAMAGE);
+    const damage = state.snapshot().attackPower;
+    runtime.hp = Math.max(0, runtime.hp - damage);
     runtime.lastHitAt = time;
     this.renderTargetHp(runtime);
-    this.floatText(target.x, target.y - 32, `-${STAFF_DAMAGE} HP`, "#ffe7a6");
+    this.floatText(target.x, target.y - 32, `-${damage} HP`, "#ffe7a6");
     showSkillState("Đang vung gậy");
 
     if (runtime.hp > 0) {
@@ -604,7 +604,7 @@ class VillageScene extends Phaser.Scene {
   }
 
   private playHeroAnimation(velocity: Phaser.Math.Vector2, time: number) {
-    if (state.snapshot().phase === "complete") {
+    if (state.snapshot().phase === "chapter-complete") {
       this.player.anims.play("victory", true);
       return;
     }
@@ -701,6 +701,45 @@ class VillageScene extends Phaser.Scene {
     g.lineStyle(2, 0x7e542b, 1).lineBetween(15, 18, 29, 18);
     g.lineBetween(15, 28, 29, 28);
     g.generateTexture("bamboo-token", 44, 56);
+
+    g.clear();
+    g.fillStyle(0xe6c87a, 1).fillRoundedRect(7, 10, 30, 34, 5);
+    g.lineStyle(3, 0x8a4f2d, 1).strokeRoundedRect(7, 10, 30, 34, 5);
+    g.fillStyle(0xb8482c, 1).fillCircle(30, 36, 5);
+    g.lineStyle(2, 0x8a4f2d, 1).lineBetween(13, 19, 29, 19);
+    g.lineBetween(13, 27, 25, 27);
+    g.generateTexture("market-scroll", 44, 54);
+
+    g.clear();
+    g.fillStyle(0x9fe7ff, 0.9).fillCircle(20, 25, 12);
+    g.lineStyle(3, 0x2f7e8f, 1).strokeCircle(20, 25, 12);
+    g.fillStyle(0xffffff, 0.88).fillCircle(16, 20, 4);
+    g.generateTexture("river-pearl", 42, 48);
+
+    g.clear();
+    g.fillStyle(0x6f9d48, 1).fillRoundedRect(10, 8, 26, 34, 5);
+    g.lineStyle(3, 0xd7c373, 1).strokeRoundedRect(10, 8, 26, 34, 5);
+    g.lineStyle(3, 0xd7c373, 1).lineBetween(16, 18, 30, 18);
+    g.lineBetween(23, 12, 23, 36);
+    g.generateTexture("mountain-seal", 46, 52);
+
+    g.clear();
+    g.lineStyle(6, 0x86502c, 1).lineBetween(20, 7, 20, 60);
+    g.lineStyle(5, 0xb8482c, 1).lineBetween(8, 26, 32, 26);
+    g.fillStyle(0xe6c87a, 1).fillRoundedRect(9, 17, 22, 28, 4);
+    g.generateTexture("market-post", 42, 66);
+
+    g.clear();
+    g.lineStyle(6, 0x2f7e8f, 1).lineBetween(20, 7, 20, 60);
+    g.lineStyle(5, 0x8d6840, 1).lineBetween(8, 26, 32, 26);
+    g.fillStyle(0xaad4d9, 1).fillRoundedRect(9, 17, 22, 28, 4);
+    g.generateTexture("river-post", 42, 66);
+
+    g.clear();
+    g.lineStyle(6, 0x4f5d42, 1).lineBetween(20, 7, 20, 60);
+    g.lineStyle(5, 0xd7c373, 1).lineBetween(8, 26, 32, 26);
+    g.fillStyle(0x8aa064, 1).fillRoundedRect(9, 17, 22, 28, 4);
+    g.generateTexture("mountain-post", 42, 66);
     g.destroy();
   }
 }
@@ -715,12 +754,21 @@ function updateHud(snapshot: GameSnapshot) {
   const prompt = document.querySelector<HTMLDivElement>("#prompt");
   const map = document.querySelector<HTMLElement>("#map-name");
   const terrain = document.querySelector<HTMLElement>("#terrain-name");
+  const rankName = document.querySelector<HTMLElement>("#rank-name");
+  const levelCount = document.querySelector<HTMLElement>("#level-count");
+  const attackCount = document.querySelector<HTMLElement>("#attack-count");
+  const xpCount = document.querySelector<HTMLElement>("#xp-count");
   const lotusCount = document.querySelector<HTMLElement>("#lotus-count");
   const dummyCount = document.querySelector<HTMLElement>("#dummy-count");
   const bambooCount = document.querySelector<HTMLElement>("#bamboo-count");
+  const chapterLabel = document.querySelector<HTMLElement>("#chapter-label");
+  const chapterCount = document.querySelector<HTMLElement>("#chapter-count");
+  const skillName = document.querySelector<HTMLElement>("#staff-skill strong");
+  const xpBar = document.querySelector<HTMLSpanElement>("#xp-bar");
   const lotusBar = document.querySelector<HTMLSpanElement>("#lotus-bar");
   const dummyBar = document.querySelector<HTMLSpanElement>("#dummy-bar");
   const bambooBar = document.querySelector<HTMLSpanElement>("#bamboo-bar");
+  const chapterBar = document.querySelector<HTMLSpanElement>("#chapter-bar");
 
   const titleByPhase: Record<GameSnapshot["phase"], string> = {
     intro: "Nghe thầy Ba chỉ bài",
@@ -728,7 +776,13 @@ function updateHud(snapshot: GameSnapshot) {
     "bamboo-ready": "Mở đường sang bãi tre",
     "bamboo-training": "Luyện thân pháp bãi tre",
     "gate-open": "Quay về cổng đình",
-    complete: "Võ sinh làng Tre",
+    "market-ready": "Mở đường sang chợ huyện",
+    "market-training": "Giữ việc chợ huyện",
+    "river-ready": "Xuống bến sông",
+    "river-training": "Bài giữ bước bến sông",
+    "mountain-ready": "Lên Núi Trúc",
+    "mountain-training": "Thử thách Núi Trúc",
+    "chapter-complete": "Võ sinh làng Tre",
   };
   const terrainByState: Record<GameSnapshot["terrain"], string> = {
     normal: "Đất khô",
@@ -740,12 +794,32 @@ function updateHud(snapshot: GameSnapshot) {
   if (map) map.textContent = MAPS[snapshot.map].name;
   if (terrain) terrain.textContent = terrainByState[snapshot.terrain];
   if (prompt) prompt.textContent = snapshot.prompt;
+  if (rankName) rankName.textContent = snapshot.rankName;
+  if (levelCount) levelCount.textContent = `Cấp ${snapshot.level}`;
+  if (attackCount) attackCount.textContent = `Gậy +${snapshot.attackPower}`;
+  if (xpCount) xpCount.textContent = `${snapshot.xp}/${snapshot.xpToNext}`;
   if (lotusCount) lotusCount.textContent = `${snapshot.lotuses}/${snapshot.requiredLotuses}`;
   if (dummyCount) dummyCount.textContent = `${snapshot.dummies}/${snapshot.requiredDummies}`;
   if (bambooCount) bambooCount.textContent = `${snapshot.bambooTokens}/${snapshot.requiredBambooTokens}`;
+  if (chapterLabel) chapterLabel.textContent = snapshot.chapterLabel;
+  if (chapterCount) chapterCount.textContent = `${snapshot.chapterItems}/${snapshot.requiredChapterItems}`;
+  if (skillName) skillName.textContent = `Gậy tre cấp ${snapshot.level}`;
+  if (xpBar) xpBar.style.width = `${(snapshot.xp / snapshot.xpToNext) * 100}%`;
   if (lotusBar) lotusBar.style.width = `${(snapshot.lotuses / snapshot.requiredLotuses) * 100}%`;
   if (dummyBar) dummyBar.style.width = `${(snapshot.dummies / snapshot.requiredDummies) * 100}%`;
   if (bambooBar) bambooBar.style.width = `${(snapshot.bambooTokens / snapshot.requiredBambooTokens) * 100}%`;
+  if (chapterBar) chapterBar.style.width = `${(snapshot.chapterItems / snapshot.requiredChapterItems) * 100}%`;
+}
+
+function collectText(kind: CollectibleKind) {
+  const labels: Record<CollectibleKind, string> = {
+    lotus: "+ sen",
+    "bamboo-token": "+ thẻ tre",
+    "market-scroll": "+ sổ chợ",
+    "river-pearl": "+ ngọc sông",
+    "mountain-seal": "+ ấn trúc",
+  };
+  return labels[kind];
 }
 
 function showDialogue(speaker: string, line: string, hasNext: boolean) {

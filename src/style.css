@@ -118,8 +118,44 @@ h1 {
 }
 
 .meters {
-  width: min(260px, 34vw);
+  width: min(282px, 36vw);
   padding: 10px;
+}
+
+.level-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 7px;
+}
+
+.level-head span,
+.level-head strong {
+  display: block;
+}
+
+.level-head span {
+  color: #516133;
+  font-size: 0.68rem;
+  font-weight: 850;
+}
+
+.level-head strong {
+  margin-top: 1px;
+  color: #232e1d;
+  font-size: 1rem;
+  font-weight: 950;
+}
+
+#attack-count {
+  min-width: 56px;
+  border: 1px solid rgba(64, 77, 45, 0.18);
+  border-radius: 999px;
+  padding: 4px 7px;
+  background: rgba(255, 241, 182, 0.72);
+  color: #5e4120;
+  text-align: center;
 }
 
 .meter-row {
@@ -160,6 +196,20 @@ h1 {
   background: linear-gradient(90deg, #477139, #c7c86b);
 }
 
+.meter--xp span {
+  background: linear-gradient(90deg, #2f7e8f, #9fe7ff);
+}
+
+.meter--chapter span {
+  background: linear-gradient(90deg, #6f9d48, #d7c373);
+}
+
+.meter-row--xp {
+  margin-top: 5px;
+  color: #516133;
+  font-size: 0.72rem;
+}
+
 .save-row {
   pointer-events: auto;
   display: flex;
@@ -184,7 +234,7 @@ h1 {
 }
 
 .prompt {
-  position: absolute;
+  position: fixed;
   top: auto;
   bottom: 28px;
   left: 50%;
@@ -379,7 +429,7 @@ h1 {
   }
 
   .prompt {
-    bottom: 94px;
+    bottom: 178px;
     font-size: 0.78rem;
   }
 
