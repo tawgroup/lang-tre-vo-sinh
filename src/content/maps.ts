@@ -1,6 +1,6 @@
 import type { CollisionShapes } from "../collision";
 import type { MapId, QuestPhase } from "../gameState";
-import { BAMBOO_TILEMAP, VILLAGE_TILEMAP, type TileMapDef } from "./tilemaps";
+import { BAMBOO_TILEMAP, MARKET_TILEMAP, VILLAGE_TILEMAP, type TileMapDef } from "./tilemaps";
 
 export const WORLD = {
   width: 1440,
@@ -390,6 +390,7 @@ export const MAPS: Record<MapId, MapDef> = {
     name: "Chợ Huyện",
     backgroundKey: "map-market",
     backgroundUrl: "/assets/maps/market.jpg",
+    tilemap: MARKET_TILEMAP,
     start: { x: 150, y: 472 },
     fallbackSpawn: { x: 150, y: 472 },
     playerDepth: 7,

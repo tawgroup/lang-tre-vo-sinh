@@ -14,6 +14,7 @@ export type TileKind =
   | "fence"
   | "bamboo"
   | "temple"
+  | "stall"
   | "bridge";
 
 export type TileLayer = TileKind[];
@@ -27,10 +28,11 @@ export type TileMapDef = {
   detail: DetailLayer;
 };
 
-const BLOCKED_TILES = new Set<TileKind>(["water", "rice", "fence", "bamboo", "temple"]);
+const BLOCKED_TILES = new Set<TileKind>(["water", "rice", "fence", "bamboo", "temple", "stall"]);
 
 export const VILLAGE_TILEMAP = createVillageTilemap();
 export const BAMBOO_TILEMAP = createBambooTilemap();
+export const MARKET_TILEMAP = createMarketTilemap();
 
 export function tileAtPixel(tilemap: TileMapDef, x: number, y: number): TileKind {
   const col = Math.floor(x / tilemap.tileSize);
@@ -149,6 +151,52 @@ function createBambooTilemap(): TileMapDef {
   return map;
 }
 
+function createMarketTilemap(): TileMapDef {
+  const ground = filled<TileKind>("grass");
+  const detail = filled<TileKind | undefined>(undefined);
+  const map: TileMapDef = { cols: TILE_COLS, rows: TILE_ROWS, tileSize: TILE_SIZE, ground, detail };
+
+  paintRect(map, ground, 0, 9, 36, 6, "path");
+  paintRect(map, ground, 15, 0, 6, 23, "path");
+  paintRect(map, ground, 5, 5, 10, 5, "path");
+  paintRect(map, ground, 22, 5, 10, 8, "path");
+  paintRect(map, ground, 8, 15, 7, 5, "path");
+  paintRect(map, ground, 23, 15, 7, 5, "path");
+
+  paintRect(map, ground, 31, 2, 5, 6, "shallow-water");
+  paintRect(map, ground, 32, 3, 4, 5, "water");
+  paintRect(map, ground, 31, 20, 5, 3, "shallow-water");
+  paintRect(map, ground, 32, 21, 4, 2, "water");
+  paintRect(map, ground, 27, 16, 9, 7, "rice");
+  paintRect(map, ground, 0, 20, 6, 3, "rice");
+
+  paintRect(map, detail, 2, 2, 6, 4, "stall");
+  paintRect(map, detail, 22, 1, 5, 4, "stall");
+  paintRect(map, detail, 28, 7, 5, 3, "stall");
+  paintRect(map, detail, 2, 15, 6, 4, "stall");
+  paintRect(map, detail, 29, 13, 4, 3, "stall");
+
+  paintLine(map, detail, 4, 7, 14, 7, "fence");
+  paintLine(map, detail, 14, 7, 14, 11, "fence");
+  paintLine(map, detail, 21, 13, 30, 13, "fence");
+  paintLine(map, detail, 21, 13, 21, 18, "fence");
+
+  paintRect(map, detail, 0, 0, 2, 23, "bamboo");
+  paintRect(map, detail, 34, 0, 2, 2, "bamboo");
+  paintRect(map, detail, 34, 8, 2, 12, "bamboo");
+  paintLine(map, detail, 0, 0, 14, 0, "bamboo");
+  paintLine(map, detail, 21, 0, 30, 0, "bamboo");
+  paintLine(map, detail, 0, 22, 26, 22, "bamboo");
+
+  openFootPad(map, 318, 282, 1, 1);
+  openFootPad(map, 430, 294, 1, 1);
+  openFootPad(map, 1120, 688, 1, 1);
+
+  clearRect(map, detail, 0, 11, 2, 4);
+  clearRect(map, detail, 34, 12, 2, 4);
+  return map;
+}
+
 function filled<T>(value: T): T[] {
   return Array<T>(TILE_COLS * TILE_ROWS).fill(value);
 }
@@ -181,6 +229,17 @@ function clearRect(tilemap: TileMapDef, layer: (TileKind | undefined)[], x: numb
       layer[index(tilemap, col, row)] = undefined;
     }
   }
+}
+
+function openFootPad(tilemap: TileMapDef, x: number, y: number, radiusCols: number, radiusRows: number) {
+  const col = Math.floor(x / tilemap.tileSize);
+  const row = Math.floor((y + 22) / tilemap.tileSize);
+  const startCol = col - radiusCols;
+  const startRow = row - radiusRows;
+  const width = radiusCols * 2 + 1;
+  const height = radiusRows * 2 + 1;
+  paintRect(tilemap, tilemap.ground, startCol, startRow, width, height, "path");
+  clearRect(tilemap, tilemap.detail, startCol, startRow, width, height);
 }
 
 function paintLine(tilemap: TileMapDef, layer: DetailLayer, fromX: number, fromY: number, toX: number, toY: number, tile: TileKind) {
