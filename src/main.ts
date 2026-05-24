@@ -9,7 +9,7 @@ import { clearSave, loadSave, writeSave } from "./save";
 
 const FEET_OFFSET_Y = 22;
 const COLLISION_CELL_SIZE = 8;
-const FOOT_SAMPLE_OFFSETS = [-8, 0, 8] as const;
+const FOOT_SAMPLE_OFFSETS = [0] as const;
 
 type Action = "up" | "down" | "left" | "right" | "strike" | "interact";
 type Dialogue = DialogueScript & {
