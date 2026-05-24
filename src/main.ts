@@ -38,6 +38,7 @@ const TILE_TEXTURES: Record<TileKind, string> = {
   bamboo: "tile-bamboo",
   temple: "tile-temple",
   stall: "tile-stall",
+  rock: "tile-rock",
   bridge: "tile-bridge",
 };
 
@@ -857,6 +858,12 @@ class VillageScene extends Phaser.Scene {
     g.fillStyle(0xf0c56a, 1).fillRect(0, 13, TILE_SIZE, 6);
     g.lineStyle(2, 0x5f3b24, 0.65).strokeRect(5, 20, 30, 14);
     g.generateTexture("tile-stall", TILE_SIZE, TILE_SIZE);
+
+    g.clear();
+    g.fillStyle(0x59624c, 1).fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+    g.fillStyle(0x7d876f, 0.75).fillCircle(10, 12, 9).fillCircle(27, 24, 12);
+    g.lineStyle(2, 0x384030, 0.55).strokeRect(1, 1, TILE_SIZE - 2, TILE_SIZE - 2);
+    g.generateTexture("tile-rock", TILE_SIZE, TILE_SIZE);
 
     g.clear();
     g.fillStyle(0x8a6035, 1).fillRect(0, 0, TILE_SIZE, TILE_SIZE);

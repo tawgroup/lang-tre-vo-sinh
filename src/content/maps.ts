@@ -1,6 +1,6 @@
 import type { CollisionShapes } from "../collision";
 import type { MapId, QuestPhase } from "../gameState";
-import { BAMBOO_TILEMAP, MARKET_TILEMAP, VILLAGE_TILEMAP, type TileMapDef } from "./tilemaps";
+import { BAMBOO_TILEMAP, MARKET_TILEMAP, MOUNTAIN_TILEMAP, RIVER_TILEMAP, VILLAGE_TILEMAP, type TileMapDef } from "./tilemaps";
 
 export const WORLD = {
   width: 1440,
@@ -507,6 +507,7 @@ export const MAPS: Record<MapId, MapDef> = {
     name: "Bến Sông",
     backgroundKey: "map-river",
     backgroundUrl: "/assets/maps/river.jpg",
+    tilemap: RIVER_TILEMAP,
     start: { x: 135, y: 456 },
     fallbackSpawn: { x: 135, y: 456 },
     playerDepth: 7,
@@ -633,6 +634,7 @@ export const MAPS: Record<MapId, MapDef> = {
     name: "Núi Trúc",
     backgroundKey: "map-mountain",
     backgroundUrl: "/assets/maps/mountain.jpg",
+    tilemap: MOUNTAIN_TILEMAP,
     start: { x: 642, y: 780 },
     fallbackSpawn: { x: 642, y: 780 },
     playerDepth: 7,

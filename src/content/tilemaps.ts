@@ -15,6 +15,7 @@ export type TileKind =
   | "bamboo"
   | "temple"
   | "stall"
+  | "rock"
   | "bridge";
 
 export type TileLayer = TileKind[];
@@ -28,11 +29,13 @@ export type TileMapDef = {
   detail: DetailLayer;
 };
 
-const BLOCKED_TILES = new Set<TileKind>(["water", "rice", "fence", "bamboo", "temple", "stall"]);
+const BLOCKED_TILES = new Set<TileKind>(["water", "rice", "fence", "bamboo", "temple", "stall", "rock"]);
 
 export const VILLAGE_TILEMAP = createVillageTilemap();
 export const BAMBOO_TILEMAP = createBambooTilemap();
 export const MARKET_TILEMAP = createMarketTilemap();
+export const RIVER_TILEMAP = createRiverTilemap();
+export const MOUNTAIN_TILEMAP = createMountainTilemap();
 
 export function tileAtPixel(tilemap: TileMapDef, x: number, y: number): TileKind {
   const col = Math.floor(x / tilemap.tileSize);
@@ -194,6 +197,94 @@ function createMarketTilemap(): TileMapDef {
 
   clearRect(map, detail, 0, 11, 2, 4);
   clearRect(map, detail, 34, 12, 2, 4);
+  return map;
+}
+
+function createRiverTilemap(): TileMapDef {
+  const ground = filled<TileKind>("grass");
+  const detail = filled<TileKind | undefined>(undefined);
+  const map: TileMapDef = { cols: TILE_COLS, rows: TILE_ROWS, tileSize: TILE_SIZE, ground, detail };
+
+  paintRect(map, ground, 0, 9, 22, 5, "path");
+  paintRect(map, ground, 14, 1, 6, 18, "path");
+  paintRect(map, ground, 7, 6, 15, 6, "path");
+  paintRect(map, ground, 10, 13, 12, 5, "path");
+  paintRect(map, ground, 4, 16, 10, 4, "path");
+
+  paintRect(map, ground, 20, 5, 16, 18, "shallow-water");
+  paintRect(map, ground, 24, 6, 12, 17, "water");
+  paintRect(map, ground, 7, 18, 29, 5, "shallow-water");
+  paintRect(map, ground, 12, 20, 24, 3, "water");
+  paintRect(map, ground, 0, 17, 8, 6, "shallow-water");
+  paintRect(map, ground, 0, 18, 7, 5, "water");
+
+  paintRect(map, ground, 18, 11, 3, 2, "bridge");
+  paintLine(map, detail, 8, 5, 13, 5, "fence");
+  paintLine(map, detail, 6, 14, 13, 14, "fence");
+  paintLine(map, detail, 21, 8, 21, 15, "fence");
+
+  paintRect(map, detail, 0, 0, 2, 23, "bamboo");
+  paintLine(map, detail, 0, 0, 13, 0, "bamboo");
+  paintLine(map, detail, 20, 0, 35, 0, "bamboo");
+  paintRect(map, detail, 35, 0, 1, 5, "bamboo");
+
+  openFootPad(map, 135, 456, 1, 1);
+  openFootPad(map, 56, 456, 1, 1);
+  openFootPad(map, 650, 74, 2, 1);
+  openFootPad(map, 398, 308, 1, 1);
+  openFootPad(map, 625, 602, 1, 1);
+  openFootPad(map, 835, 462, 1, 1);
+  openFootPad(map, 492, 742, 1, 1);
+  openFootPad(map, 330, 282, 1, 1);
+  openFootPad(map, 528, 525, 1, 1);
+  openFootPad(map, 712, 382, 1, 1);
+  openFootPad(map, 820, 690, 1, 1);
+
+  clearRect(map, detail, 0, 10, 2, 4);
+  clearRect(map, detail, 14, 0, 6, 3);
+  return map;
+}
+
+function createMountainTilemap(): TileMapDef {
+  const ground = filled<TileKind>("grass");
+  const detail = filled<TileKind | undefined>(undefined);
+  const map: TileMapDef = { cols: TILE_COLS, rows: TILE_ROWS, tileSize: TILE_SIZE, ground, detail };
+
+  paintRect(map, ground, 14, 17, 5, 6, "path");
+  paintRect(map, ground, 10, 14, 12, 5, "path");
+  paintRect(map, ground, 9, 7, 15, 8, "path");
+  paintRect(map, ground, 10, 5, 8, 4, "path");
+  paintRect(map, ground, 16, 4, 9, 5, "path");
+  paintRect(map, ground, 13, 10, 15, 4, "path");
+  paintRect(map, ground, 2, 15, 8, 8, "shallow-water");
+
+  paintRect(map, detail, 0, 0, 2, 23, "rock");
+  paintRect(map, detail, 34, 0, 2, 23, "rock");
+  paintLine(map, detail, 0, 0, 35, 0, "rock");
+  paintLine(map, detail, 0, 22, 13, 22, "rock");
+  paintLine(map, detail, 19, 22, 35, 22, "rock");
+  paintRect(map, detail, 2, 7, 5, 12, "rock");
+  paintRect(map, detail, 30, 6, 6, 15, "rock");
+  paintRect(map, detail, 19, 1, 8, 5, "rock");
+  paintRect(map, detail, 25, 8, 6, 6, "rock");
+  paintRect(map, detail, 27, 14, 7, 8, "rock");
+  paintLine(map, detail, 8, 6, 9, 14, "fence");
+  paintLine(map, detail, 23, 7, 24, 14, "fence");
+
+  openFootPad(map, 642, 780, 2, 1);
+  openFootPad(map, 642, 886, 2, 1);
+  openFootPad(map, 436, 312, 1, 1);
+  openFootPad(map, 622, 266, 1, 1);
+  openFootPad(map, 908, 350, 1, 1);
+  openFootPad(map, 714, 622, 1, 1);
+  openFootPad(map, 484, 734, 1, 1);
+  openFootPad(map, 420, 388, 1, 1);
+  openFootPad(map, 555, 368, 1, 1);
+  openFootPad(map, 690, 382, 1, 1);
+  openFootPad(map, 835, 480, 1, 1);
+  openFootPad(map, 600, 600, 1, 1);
+
+  clearRect(map, detail, 14, 21, 5, 2);
   return map;
 }
 
