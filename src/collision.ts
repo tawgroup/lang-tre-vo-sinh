@@ -90,9 +90,9 @@ export class CollisionGrid {
     const right = r.x + r.width / 2;
     const bottom = r.y + r.height / 2;
     const c0 = Math.floor(left / this.cellSize);
-    const c1 = Math.floor(right / this.cellSize);
+    const c1 = Math.floor((right - 0.001) / this.cellSize);
     const r0 = Math.floor(top / this.cellSize);
-    const r1 = Math.floor(bottom / this.cellSize);
+    const r1 = Math.floor((bottom - 0.001) / this.cellSize);
     for (let row = r0; row <= r1; row++) {
       for (let col = c0; col <= c1; col++) {
         this.setCell(col, row);

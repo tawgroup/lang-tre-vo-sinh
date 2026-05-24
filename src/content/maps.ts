@@ -1,6 +1,6 @@
 import type { CollisionShapes } from "../collision";
 import type { MapId, QuestPhase } from "../gameState";
-import { VILLAGE_TILEMAP, type TileMapDef } from "./tilemaps";
+import { BAMBOO_TILEMAP, VILLAGE_TILEMAP, type TileMapDef } from "./tilemaps";
 
 export const WORLD = {
   width: 1440,
@@ -310,6 +310,7 @@ export const MAPS: Record<MapId, MapDef> = {
     name: "Bãi Tre",
     backgroundKey: "map-bamboo",
     backgroundUrl: "/assets/maps/bamboo.jpg",
+    tilemap: BAMBOO_TILEMAP,
     start: { x: 720, y: 155 },
     fallbackSpawn: { x: 720, y: 155 },
     playerDepth: 7,
