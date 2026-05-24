@@ -3,6 +3,7 @@ import "./style.css";
 import { CollisionGrid } from "./collision";
 import { MAPS, WORLD, rectContains, type CollectibleKind, type ExitDef, type MapDef, type TargetDef } from "./content/maps";
 import { masterDialogue, type DialogueScript } from "./content/story";
+import { TILE_SIZE, tileCollisionRects, tileTerrainAt, type TileKind, type TileMapDef } from "./content/tilemaps";
 import { GameState, type GameSnapshot, type MapId } from "./gameState";
 import { clearSave, loadSave, writeSave } from "./save";
 
@@ -26,6 +27,18 @@ const HERO_SCALE = 0.48;
 const WALK_SPEED = 190;
 const state = new GameState(loadSave());
 const pressedActions = new Set<Action>();
+const TILE_TEXTURES: Record<TileKind, string> = {
+  grass: "tile-grass",
+  path: "tile-path",
+  courtyard: "tile-courtyard",
+  water: "tile-water",
+  "shallow-water": "tile-shallow-water",
+  rice: "tile-rice",
+  fence: "tile-fence",
+  bamboo: "tile-bamboo",
+  temple: "tile-temple",
+  bridge: "tile-bridge",
+};
 
 class VillageScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
@@ -204,14 +217,20 @@ class VillageScene extends Phaser.Scene {
     closeDialogue();
     this.targetRuntime.clear();
 
-    this.add.image(0, 0, this.currentMap.backgroundKey).setOrigin(0, 0).setDisplaySize(WORLD.width, WORLD.height);
+    if (this.currentMap.tilemap) {
+      this.renderTilemap(this.currentMap.tilemap);
+    } else {
+      this.add.image(0, 0, this.currentMap.backgroundKey).setOrigin(0, 0).setDisplaySize(WORLD.width, WORLD.height);
+    }
     this.blockers = this.physics.add.staticGroup();
     this.deepWater = this.physics.add.staticGroup();
     this.targets = this.physics.add.staticGroup();
     this.collectibles = this.physics.add.staticGroup();
 
-    this.currentMap.blockers.forEach((rect) => this.addStaticRect(rect, this.blockers));
-    if (!state.snapshot().canSwim) {
+    if (!this.currentMap.tilemap) {
+      this.currentMap.blockers.forEach((rect) => this.addStaticRect(rect, this.blockers));
+    }
+    if (!this.currentMap.tilemap && !state.snapshot().canSwim) {
       this.currentMap.deepWater.forEach((rect) => this.addStaticRect(rect, this.deepWater));
     }
 
@@ -290,6 +309,21 @@ class VillageScene extends Phaser.Scene {
     this.player.setSize(54, 66).setOffset(45, 70).setCollideWorldBounds(true);
   }
 
+  private renderTilemap(tilemap: TileMapDef) {
+    for (let row = 0; row < tilemap.rows; row++) {
+      for (let col = 0; col < tilemap.cols; col++) {
+        const x = col * tilemap.tileSize + tilemap.tileSize / 2;
+        const y = row * tilemap.tileSize + tilemap.tileSize / 2;
+        const ground = tilemap.ground[row * tilemap.cols + col];
+        this.add.image(x, y, TILE_TEXTURES[ground]).setDisplaySize(tilemap.tileSize, tilemap.tileSize).setDepth(0);
+        const detail = tilemap.detail[row * tilemap.cols + col];
+        if (detail) {
+          this.add.image(x, y, TILE_TEXTURES[detail]).setDisplaySize(tilemap.tileSize, tilemap.tileSize).setDepth(1);
+        }
+      }
+    }
+  }
+
   private cameraZoom(width: number, height: number) {
     const fitWorld = Math.max(width / WORLD.width, height / WORLD.height);
     const base = width < 720 ? 1 : 1.08;
@@ -323,6 +357,12 @@ class VillageScene extends Phaser.Scene {
 
   private buildCollisionGrid() {
     const grid = new CollisionGrid(WORLD.width, WORLD.height, COLLISION_CELL_SIZE);
+    if (this.currentMap.tilemap) {
+      grid.addShapes({ rects: tileCollisionRects(this.currentMap.tilemap) });
+      this.collisionGrid = grid;
+      this.rebuildDebugOverlay(grid);
+      return;
+    }
     grid.addShapes({ rects: this.currentMap.blockers });
     if (!state.snapshot().canSwim) {
       grid.addShapes({ rects: this.currentMap.deepWater });
@@ -337,7 +377,10 @@ class VillageScene extends Phaser.Scene {
       }
     }
     this.collisionGrid = grid;
+    this.rebuildDebugOverlay(grid);
+  }
 
+  private rebuildDebugOverlay(grid: CollisionGrid) {
     if (this.debugOverlay) {
       this.debugOverlay.destroy();
       this.debugOverlay = undefined;
@@ -390,6 +433,10 @@ class VillageScene extends Phaser.Scene {
   private currentTerrain() {
     const feetX = this.player.x;
     const feetY = this.player.y + 22;
+    if (this.currentMap.tilemap) {
+      const tileTerrain = tileTerrainAt(this.currentMap.tilemap, feetX, feetY);
+      if (tileTerrain) return tileTerrain;
+    }
     const shallow = this.currentMap.shallowTerrain.find((zone) => rectContains(zone, feetX, feetY));
     return shallow ?? { kind: "normal" as const, speedMultiplier: 1, prompt: "" };
   }
@@ -752,6 +799,62 @@ class VillageScene extends Phaser.Scene {
     g.lineStyle(5, 0xd7c373, 1).lineBetween(8, 26, 32, 26);
     g.fillStyle(0x8aa064, 1).fillRoundedRect(9, 17, 22, 28, 4);
     g.generateTexture("mountain-post", 42, 66);
+
+    g.clear();
+    g.fillStyle(0x6ca64d, 1).fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+    g.fillStyle(0x7eb95a, 0.65).fillCircle(8, 10, 5).fillCircle(28, 26, 4).fillCircle(20, 34, 3);
+    g.generateTexture("tile-grass", TILE_SIZE, TILE_SIZE);
+
+    g.clear();
+    g.fillStyle(0xcda15c, 1).fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+    g.fillStyle(0xb88947, 0.48).fillCircle(7, 12, 4).fillCircle(30, 29, 3);
+    g.generateTexture("tile-path", TILE_SIZE, TILE_SIZE);
+
+    g.clear();
+    g.fillStyle(0xb76d46, 1).fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+    g.lineStyle(1, 0x8d4f34, 0.35);
+    g.strokeRect(0, 0, TILE_SIZE, TILE_SIZE);
+    g.generateTexture("tile-courtyard", TILE_SIZE, TILE_SIZE);
+
+    g.clear();
+    g.fillStyle(0x16847a, 1).fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+    g.fillStyle(0x55c1ad, 0.32).fillEllipse(20, 20, 34, 12);
+    g.generateTexture("tile-water", TILE_SIZE, TILE_SIZE);
+
+    g.clear();
+    g.fillStyle(0x4db39b, 1).fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+    g.fillStyle(0xa6dfc1, 0.4).fillEllipse(20, 25, 32, 10);
+    g.generateTexture("tile-shallow-water", TILE_SIZE, TILE_SIZE);
+
+    g.clear();
+    g.fillStyle(0x8cbf35, 1).fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+    g.lineStyle(3, 0xd9d86a, 0.8);
+    for (let x = 6; x < TILE_SIZE; x += 8) g.lineBetween(x, 4, x - 3, 36);
+    g.generateTexture("tile-rice", TILE_SIZE, TILE_SIZE);
+
+    g.clear();
+    g.fillStyle(0x7fb35a, 1).fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+    g.lineStyle(5, 0x6b4529, 1).lineBetween(4, 22, 36, 18);
+    g.lineStyle(3, 0x9a6a3c, 1).lineBetween(9, 9, 9, 31).lineBetween(25, 8, 25, 30);
+    g.generateTexture("tile-fence", TILE_SIZE, TILE_SIZE);
+
+    g.clear();
+    g.fillStyle(0x2f7540, 1).fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+    g.lineStyle(3, 0x9ac66d, 1);
+    for (let x = 8; x < TILE_SIZE; x += 8) g.lineBetween(x, 3, x + 2, 37);
+    g.generateTexture("tile-bamboo", TILE_SIZE, TILE_SIZE);
+
+    g.clear();
+    g.fillStyle(0x7b4b37, 1).fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+    g.fillStyle(0xb95f39, 1).fillRect(0, 0, TILE_SIZE, 12);
+    g.lineStyle(2, 0xd2b16d, 0.5).strokeRect(4, 14, 32, 22);
+    g.generateTexture("tile-temple", TILE_SIZE, TILE_SIZE);
+
+    g.clear();
+    g.fillStyle(0x8a6035, 1).fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+    g.lineStyle(2, 0xc79a5e, 0.85);
+    for (let y = 8; y < TILE_SIZE; y += 8) g.lineBetween(2, y, 38, y);
+    g.generateTexture("tile-bridge", TILE_SIZE, TILE_SIZE);
     g.destroy();
   }
 }

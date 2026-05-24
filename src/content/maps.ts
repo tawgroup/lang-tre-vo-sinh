@@ -1,5 +1,6 @@
 import type { CollisionShapes } from "../collision";
 import type { MapId, QuestPhase } from "../gameState";
+import { VILLAGE_TILEMAP, type TileMapDef } from "./tilemaps";
 
 export const WORLD = {
   width: 1440,
@@ -56,6 +57,7 @@ export type MapDef = {
   name: string;
   backgroundKey: string;
   backgroundUrl: string;
+  tilemap?: TileMapDef;
   collisionMaskKey?: string;
   collisionMaskUrl?: string;
   start: Point;
@@ -180,9 +182,10 @@ export const MAPS: Record<MapId, MapDef> = {
     name: "Làng Tre",
     backgroundKey: "map-village",
     backgroundUrl: "/assets/maps/village.jpg",
+    tilemap: VILLAGE_TILEMAP,
     collisionMaskKey: "collision-village",
     collisionMaskUrl: "/assets/collision/village.svg",
-    start: { x: 705, y: 305 },
+    start: { x: 735, y: 270 },
     fallbackSpawn: { x: 700, y: 780 },
     playerDepth: 7,
     blockers: villageBlockers,
@@ -251,8 +254,8 @@ export const MAPS: Record<MapId, MapDef> = {
     collectibles: [
       { id: "lotus-1", kind: "lotus", x: 880, y: 318 },
       { id: "lotus-2", kind: "lotus", x: 948, y: 558 },
-      { id: "lotus-3", kind: "lotus", x: 1344, y: 382 },
-      { id: "lotus-4", kind: "lotus", x: 1252, y: 260 },
+      { id: "lotus-3", kind: "lotus", x: 1188, y: 428 },
+      { id: "lotus-4", kind: "lotus", x: 1210, y: 260 },
       { id: "lotus-5", kind: "lotus", x: 1082, y: 560 },
     ],
     targets: [
