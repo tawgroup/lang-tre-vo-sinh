@@ -77,6 +77,35 @@
         <div class="dialogue-hint" id="dialogue-hint">Space/E để tiếp tục</div>
       </div>
 
+      <div id="hud-controls">
+        <button id="mute-btn" type="button" aria-label="Bật/tắt âm thanh">🔊</button>
+        <button id="pause-btn" type="button" aria-label="Tạm dừng">⏸</button>
+      </div>
+
+      <div id="start-screen" class="overlay">
+        <div class="overlay-card">
+          <span class="crest crest--big"></span>
+          <p class="eyebrow">Trò chơi nhập vai</p>
+          <h1 class="overlay-title">Võ Sinh Làng Tre</h1>
+          <p class="overlay-sub">Hành trình nhập môn võ làng qua đồng lúa, bến sông và Núi Trúc.</p>
+          <button id="start-btn" type="button" class="big-btn">Bắt đầu</button>
+          <ul class="controls-legend">
+            <li><b>WASD / mũi tên</b> — di chuyển</li>
+            <li><b>Shift</b> — chạy nhanh</li>
+            <li><b>Space / E</b> — nói chuyện · ra đòn · tương tác</li>
+            <li><b>Esc</b> — tạm dừng</li>
+          </ul>
+        </div>
+      </div>
+
+      <div id="pause-screen" class="overlay" hidden>
+        <div class="overlay-card">
+          <h1 class="overlay-title">Tạm dừng</h1>
+          <button id="resume-btn" type="button" class="big-btn">Tiếp tục</button>
+          <button id="pause-mute-btn" type="button" class="ghost-btn">Bật/tắt âm thanh</button>
+        </div>
+      </div>
+
       <div id="touch-controls" aria-label="Điều khiển cảm ứng">
         <div class="touch-pad">
           <button data-action="up" aria-label="Lên">▲</button>
