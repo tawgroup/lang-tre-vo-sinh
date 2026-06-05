@@ -6,6 +6,7 @@ import { masterDialogue, type DialogueScript } from "./content/story";
 import { TILE_SIZE, tileCollisionRects, tileTerrainAt, type TileKind, type TileMapDef } from "./content/tilemaps";
 import { GameState, type GameSnapshot, type MapId } from "./gameState";
 import { clearSave, loadSave, writeSave } from "./save";
+import { audio } from "./audio";
 
 const FEET_OFFSET_Y = 22;
 const COLLISION_CELL_SIZE = 8;
@@ -27,6 +28,7 @@ const HERO_SCALE = 0.48;
 const WALK_SPEED = 190;
 const state = new GameState(loadSave());
 const pressedActions = new Set<Action>();
+let gamePaused = false;
 // Each tile kind maps to one or more visual variants. The renderer picks a
 // variant deterministically per cell so large patches of the same tile don't
 // read as a repeating grid.
@@ -92,6 +94,14 @@ class VillageScene extends Phaser.Scene {
   private debugOverlay?: Phaser.GameObjects.Image;
   private debugVisible = false;
   private mKey?: Phaser.Input.Keyboard.Key;
+  private shiftKey?: Phaser.Input.Keyboard.Key;
+  private lastStepAt = 0;
+  private comboCount = 0;
+  private comboUntil = 0;
+  private lastLevel = state.snapshot().level;
+  private objBeacon?: Phaser.GameObjects.Text;
+  private objArrow?: Phaser.GameObjects.Text;
+  private flashRect?: Phaser.GameObjects.Rectangle;
 
   constructor() {
     super("village");
@@ -172,8 +182,16 @@ class VillageScene extends Phaser.Scene {
   }
 
   update(time: number) {
+    if (gamePaused) {
+      this.player.setVelocity(0, 0);
+      this.player.anims.play("idle-front", true);
+      return;
+    }
     const terrain = this.currentTerrain();
-    const speed = this.activeDialogue ? 0 : WALK_SPEED * terrain.speedMultiplier;
+    const running = !!this.shiftKey?.isDown && terrain.kind === "normal" && !this.activeDialogue;
+    const speed = this.activeDialogue
+      ? 0
+      : WALK_SPEED * terrain.speedMultiplier * (running ? 1.55 : 1);
     const velocity = new Phaser.Math.Vector2(0, 0);
     if (this.cursors.left.isDown || this.keys.a.isDown || pressedActions.has("left")) velocity.x -= 1;
     if (this.cursors.right.isDown || this.keys.d.isDown || pressedActions.has("right")) velocity.x += 1;
@@ -185,6 +203,14 @@ class VillageScene extends Phaser.Scene {
     if (velocity.x !== 0) this.player.setFlipX(velocity.x < 0);
     this.playHeroAnimation(velocity, time);
     this.resolveCollision();
+    this.handleFootsteps(time, velocity, running, terrain.kind);
+    this.updateObjectiveMarker();
+
+    const lvl = state.snapshot().level;
+    if (lvl > this.lastLevel) {
+      this.onLevelUp(lvl);
+      this.lastLevel = lvl;
+    }
 
     if (this.mKey && Phaser.Input.Keyboard.JustDown(this.mKey)) {
       this.debugVisible = !this.debugVisible;
@@ -237,6 +263,7 @@ class VillageScene extends Phaser.Scene {
       e: Phaser.Input.Keyboard.KeyCodes.E,
       space: Phaser.Input.Keyboard.KeyCodes.SPACE,
     }) as Record<string, Phaser.Input.Keyboard.Key>;
+    this.shiftKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
     if (import.meta.env.DEV) {
       this.mKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.M);
     }
@@ -270,6 +297,11 @@ class VillageScene extends Phaser.Scene {
     this.cameras.main.setZoom(this.cameraZoom(this.scale.width, this.scale.height));
     closeDialogue();
     this.targetRuntime.clear();
+    // These are children of the scene and were just destroyed by removeAll —
+    // drop the stale references so they get rebuilt lazily for the new map.
+    this.objBeacon = undefined;
+    this.objArrow = undefined;
+    this.flashRect = undefined;
 
     if (this.currentMap.tilemap) {
       this.renderTilemap(this.currentMap.tilemap);
@@ -532,6 +564,7 @@ class VillageScene extends Phaser.Scene {
     this.waterBlockPromptUntil = this.time.now + 900;
     state.setTerrain("blocked-water", zone?.prompt ?? "Nước sâu. Chưa học bơi thì không thể đi tiếp.");
     showNotice(zone?.prompt ?? "Nước sâu. Chưa học bơi thì không thể đi tiếp.");
+    audio.splash();
     this.cameras.main.shake(90, 0.002);
     updateHud(state.snapshot());
   }
@@ -544,6 +577,7 @@ class VillageScene extends Phaser.Scene {
     if (snapshot.terrain === "shallow-water") {
       this.player.setTint(0x9be2ff);
       showNotice("Lội nước: tốc độ giảm mạnh.");
+      audio.splash();
     }
     if (snapshot.terrain === "blocked-water") {
       this.player.setTint(0x78b6ff);
@@ -642,6 +676,8 @@ class VillageScene extends Phaser.Scene {
       onDone: () => {
         state.completeFestival();
         persistProgress();
+        audio.gate();
+        this.screenFlash(0xffe8a0, 0.4);
         this.tweens.add({
           targets: this.gateGlow,
           alpha: 0.72,
@@ -682,6 +718,8 @@ class VillageScene extends Phaser.Scene {
 
     collectible.disableBody(true, true);
     persistProgress();
+    audio.collect();
+    this.burst(collectible.x, collectible.y, "spark", 10, 110);
     this.floatText(collectible.x, collectible.y - 20, collectText(kind), "#fff4b8");
     updateHud(state.snapshot());
   }
@@ -691,6 +729,16 @@ class VillageScene extends Phaser.Scene {
     this.player.setTint(0xffe28a);
     this.time.delayedCall(100, () => this.player.clearTint());
     this.time.delayedCall(360, () => showSkillState("Sẵn sàng"));
+    audio.swing();
+    // Hero "punch" squash for snappy feedback on every swing.
+    this.player.setScale(HERO_SCALE * 1.12, HERO_SCALE * 0.92);
+    this.tweens.add({
+      targets: this.player,
+      scaleX: HERO_SCALE,
+      scaleY: HERO_SCALE,
+      duration: 140,
+      ease: "Back.easeOut",
+    });
 
     const arc = this.add
       .circle(this.player.x + (this.player.flipX ? -34 : 34), this.player.y + 8, 30, 0xfff0a8, 0.28)
@@ -715,8 +763,24 @@ class VillageScene extends Phaser.Scene {
     runtime.hp = Math.max(0, runtime.hp - damage);
     runtime.lastHitAt = time;
     this.renderTargetHp(runtime);
-    this.floatText(target.x, target.y - 32, `-${damage} HP`, "#ffe7a6");
-    showSkillState("Đang vung gậy");
+    this.registerCombo(time);
+    audio.hit(this.comboCount);
+    this.floatText(target.x, target.y - 32, `-${damage}`, "#ffe7a6");
+    showSkillState(this.comboCount >= 3 ? `Liên hoàn x${this.comboCount}` : "Đang vung gậy");
+
+    // Impact juice: target flinch + knockback, debris, small camera kick.
+    const dir = this.player.flipX ? -1 : 1;
+    target.setTint(0xffffff);
+    this.time.delayedCall(80, () => target.active && target.clearTint());
+    this.tweens.add({
+      targets: target,
+      x: target.x + dir * 6,
+      duration: 70,
+      yoyo: true,
+      ease: "Quad.easeOut",
+    });
+    this.burst(target.x, target.y - 6, "straw", 6, 130, 0xe6cf63);
+    this.cameras.main.shake(70, 0.003);
 
     if (runtime.hp > 0) {
       state.setPrompt(`Mục tiêu còn ${Math.ceil(runtime.hp)}/${runtime.def.maxHp} HP. Đánh liền tay kẻo nó hồi.`);
@@ -729,6 +793,9 @@ class VillageScene extends Phaser.Scene {
     runtime.barFill.destroy();
     state.defeatTarget(id, this.currentMap.id);
     persistProgress();
+    audio.defeat();
+    this.burst(target.x, target.y - 8, "straw", 16, 200, 0xd8b25a);
+    this.cameras.main.shake(140, 0.005);
     this.floatText(target.x, target.y - 48, "hạ mục tiêu", "#fff1b6");
     updateHud(state.snapshot());
   }
@@ -763,12 +830,14 @@ class VillageScene extends Phaser.Scene {
   private openDialogue(dialogue: Dialogue) {
     this.activeDialogue = dialogue;
     this.dialogueIndex = 0;
+    audio.blip();
     showDialogue(dialogue.speaker, dialogue.lines[0], dialogue.lines.length > 1);
   }
 
   private advanceDialogue() {
     if (!this.activeDialogue) return;
     this.dialogueIndex += 1;
+    audio.blip();
     if (this.dialogueIndex < this.activeDialogue.lines.length) {
       showDialogue(
         this.activeDialogue.speaker,
@@ -803,6 +872,191 @@ class VillageScene extends Phaser.Scene {
       ease: "Cubic.easeOut",
       onComplete: () => label.destroy(),
     });
+  }
+
+  private handleFootsteps(
+    time: number,
+    velocity: Phaser.Math.Vector2,
+    running: boolean,
+    terrainKind: string,
+  ) {
+    if (velocity.lengthSq() === 0 || this.activeDialogue) return;
+    const interval = running ? 200 : 300;
+    if (time - this.lastStepAt < interval) return;
+    this.lastStepAt = time;
+    audio.step();
+    if (terrainKind === "normal") {
+      const dust = this.add
+        .image(this.player.x + (this.player.flipX ? 8 : -8), this.player.y + 30, "dust")
+        .setDepth(this.currentMap.playerDepth - 1)
+        .setScale(0.6)
+        .setAlpha(0.7);
+      this.tweens.add({
+        targets: dust,
+        alpha: 0,
+        scale: 1.1,
+        y: dust.y + 4,
+        duration: 360,
+        onComplete: () => dust.destroy(),
+      });
+    }
+  }
+
+  private burst(x: number, y: number, texture: string, count: number, speed: number, tint?: number) {
+    const emitter = this.add.particles(x, y, texture, {
+      lifespan: 520,
+      speed: { min: speed * 0.4, max: speed },
+      angle: { min: 0, max: 360 },
+      gravityY: 220,
+      scale: { start: 1, end: 0 },
+      alpha: { start: 1, end: 0 },
+      rotate: { min: 0, max: 360 },
+      emitting: false,
+    });
+    emitter.setDepth(this.currentMap.playerDepth + 4);
+    if (tint !== undefined) emitter.setParticleTint(tint);
+    emitter.explode(count, x, y);
+    this.time.delayedCall(800, () => emitter.destroy());
+  }
+
+  private registerCombo(time: number) {
+    if (time < this.comboUntil) this.comboCount += 1;
+    else this.comboCount = 1;
+    this.comboUntil = time + 1500;
+    if (this.comboCount >= 3) {
+      showSkillState(`Liên hoàn x${this.comboCount}`);
+    }
+  }
+
+  private onLevelUp(level: number) {
+    audio.levelUp();
+    this.screenFlash(0xfff3c0, 0.5);
+    this.cameras.main.shake(180, 0.004);
+    this.floatText(this.player.x, this.player.y - 54, `LÊN CẤP ${level}!`, "#fff0b0");
+    showNotice(`Lên cấp ${level} — gậy tre đánh thấm hơn.`);
+  }
+
+  private screenFlash(color: number, alpha: number) {
+    const cam = this.cameras.main;
+    if (!this.flashRect || !this.flashRect.active) {
+      this.flashRect = this.add
+        .rectangle(0, 0, 10, 10, color, 1)
+        .setOrigin(0)
+        .setScrollFactor(0)
+        .setDepth(40);
+    }
+    this.flashRect
+      .setFillStyle(color, 1)
+      .setPosition(0, 0)
+      .setSize(cam.width, cam.height)
+      .setAlpha(alpha)
+      .setVisible(true);
+    this.tweens.add({
+      targets: this.flashRect,
+      alpha: 0,
+      duration: 360,
+      onComplete: () => this.flashRect?.setVisible(false),
+    });
+  }
+
+  // A bobbing beacon over the nearest remaining objective, plus a screen-edge
+  // arrow when that objective is off-camera — so the player is never lost.
+  private updateObjectiveMarker() {
+    const goal = this.nearestObjective();
+    if (!this.objBeacon || !this.objBeacon.active) {
+      this.objBeacon = this.add
+        .text(0, 0, "▾", {
+          color: "#ffe98a",
+          fontFamily: "ui-sans-serif, system-ui",
+          fontSize: "26px",
+          fontStyle: "bold",
+          stroke: "#23301d",
+          strokeThickness: 4,
+        })
+        .setOrigin(0.5)
+        .setDepth(this.currentMap.playerDepth + 5);
+    }
+    if (!this.objArrow || !this.objArrow.active) {
+      this.objArrow = this.add
+        .text(0, 0, "➤", {
+          color: "#ffe98a",
+          fontFamily: "ui-sans-serif, system-ui",
+          fontSize: "30px",
+          fontStyle: "bold",
+          stroke: "#23301d",
+          strokeThickness: 4,
+        })
+        .setOrigin(0.5)
+        .setScrollFactor(0)
+        .setDepth(40);
+    }
+    if (!goal) {
+      this.objBeacon.setVisible(false);
+      this.objArrow.setVisible(false);
+      return;
+    }
+    const cam = this.cameras.main;
+    const view = cam.worldView;
+    const onScreen =
+      goal.x > view.x + 20 &&
+      goal.x < view.right - 20 &&
+      goal.y > view.y + 20 &&
+      goal.y < view.bottom - 20;
+    if (onScreen) {
+      const bob = Math.sin(this.time.now / 220) * 5;
+      this.objBeacon.setVisible(true).setPosition(goal.x, goal.y - 46 + bob);
+      this.objArrow.setVisible(false);
+    } else {
+      this.objBeacon.setVisible(false);
+      const cx = cam.width / 2;
+      const cy = cam.height / 2;
+      const dx = goal.x - (view.x + view.width / 2);
+      const dy = goal.y - (view.y + view.height / 2);
+      const ang = Math.atan2(dy, dx);
+      const margin = 46;
+      const ex = Phaser.Math.Clamp(cx + Math.cos(ang) * cx, margin, cam.width - margin);
+      const ey = Phaser.Math.Clamp(cy + Math.sin(ang) * cy, margin, cam.height - margin);
+      this.objArrow.setVisible(true).setPosition(ex, ey).setRotation(ang);
+    }
+  }
+
+  private nearestObjective(): { x: number; y: number } | undefined {
+    const snap = state.snapshot();
+    // During the intro the single required action is talking to the master.
+    if (snap.phase === "intro" && this.npc) {
+      return { x: this.npc.x, y: this.npc.y };
+    }
+    const px = this.player.x;
+    const py = this.player.y;
+    const pool: Phaser.GameObjects.GameObject[] = [];
+    this.collectibles?.getChildren().forEach((c) => {
+      if ((c as Phaser.Physics.Arcade.Sprite).active) pool.push(c);
+    });
+    if (pool.length === 0) {
+      this.targets?.getChildren().forEach((t) => {
+        if ((t as Phaser.Physics.Arcade.Sprite).active) pool.push(t);
+      });
+    }
+    let best: { x: number; y: number } | undefined;
+    let bestD = Infinity;
+    pool.forEach((obj) => {
+      const s = obj as Phaser.Physics.Arcade.Sprite;
+      const d = Phaser.Math.Distance.Between(px, py, s.x, s.y);
+      if (d < bestD) {
+        bestD = d;
+        best = { x: s.x, y: s.y };
+      }
+    });
+    if (best) return best;
+    // Nothing left to collect/train here — guide toward the gate, master, or exit.
+    if (this.gate && snap.phase === "gate-open") {
+      return { x: this.gate.x, y: this.gate.y };
+    }
+    if (this.npc && snap.phase === "chapter-complete") {
+      return { x: this.npc.x, y: this.npc.y };
+    }
+    const exit = this.currentMap.exits[0];
+    return exit ? { x: exit.x, y: exit.y } : undefined;
   }
 
   private resetGame() {
@@ -959,6 +1213,22 @@ class VillageScene extends Phaser.Scene {
     g.lineStyle(5, 0xe6b85a, 1).lineBetween(8, 26, 32, 26);
     g.fillStyle(0x9bd4ee, 1).fillRoundedRect(9, 17, 22, 28, 4);
     g.generateTexture("chonoi-post", 42, 66);
+
+    // --- Particle bits: a bright spark, a straw shred, a dust puff ---
+    g.clear();
+    g.fillStyle(0xffe9a6, 1).fillCircle(5, 5, 4);
+    g.fillStyle(0xffffff, 1).fillCircle(5, 5, 2);
+    g.generateTexture("spark", 10, 10);
+
+    g.clear();
+    g.fillStyle(0xd8b25a, 1).fillRect(0, 2, 8, 2);
+    g.fillStyle(0xe6cf63, 1).fillRect(0, 2, 4, 2);
+    g.generateTexture("straw", 8, 6);
+
+    g.clear();
+    g.fillStyle(0xcdbb95, 0.9).fillCircle(5, 5, 5);
+    g.fillStyle(0xe2d4ad, 0.8).fillCircle(4, 4, 3);
+    g.generateTexture("dust", 10, 10);
 
     g.destroy();
     this.buildTileTextures();
@@ -1488,7 +1758,56 @@ function bindTouchControls() {
   });
 }
 
+function updateMuteIcons() {
+  const muted = audio.isMuted();
+  document.querySelectorAll<HTMLButtonElement>("#mute-btn").forEach((b) => {
+    b.textContent = muted ? "🔇" : "🔊";
+  });
+}
+
+function setPaused(value: boolean) {
+  gamePaused = value;
+  const screen = document.querySelector<HTMLDivElement>("#pause-screen");
+  if (screen) screen.hidden = !value;
+}
+
+function setupOverlays() {
+  // Start screen doubles as the audio-unlock gesture browsers require.
+  const startScreen = document.querySelector<HTMLDivElement>("#start-screen");
+  const beginGame = () => {
+    if (!startScreen || startScreen.classList.contains("is-gone")) return;
+    audio.unlock();
+    audio.startMusic();
+    startScreen.classList.add("is-gone");
+    window.setTimeout(() => startScreen.setAttribute("hidden", ""), 360);
+  };
+  document.querySelector<HTMLButtonElement>("#start-btn")?.addEventListener("click", beginGame);
+  startScreen?.addEventListener("click", beginGame);
+
+  // Pause / resume.
+  const togglePause = () => {
+    if (startScreen && !startScreen.classList.contains("is-gone")) return;
+    setPaused(!gamePaused);
+    audio.ui();
+  };
+  document.querySelector<HTMLButtonElement>("#pause-btn")?.addEventListener("click", togglePause);
+  document.querySelector<HTMLButtonElement>("#resume-btn")?.addEventListener("click", () => setPaused(false));
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") togglePause();
+  });
+
+  // Mute toggles.
+  const toggleMute = () => {
+    audio.toggleMute();
+    updateMuteIcons();
+  };
+  document.querySelector<HTMLButtonElement>("#mute-btn")?.addEventListener("click", toggleMute);
+  document.querySelector<HTMLButtonElement>("#pause-mute-btn")?.addEventListener("click", toggleMute);
+  updateMuteIcons();
+}
+
 bindTouchControls();
+setupOverlays();
 
 new Phaser.Game({
   type: Phaser.AUTO,
